@@ -35,7 +35,7 @@ rollback() {
 		docker image tag "$previous_id" "$live_image"
 		(
 			cd "$app_dir"
-			docker compose up -d --no-build --no-deps --force-recreate app api agent
+			docker compose -f ops/ada/compose.yml up -d --no-build --no-deps --force-recreate app api agent
 		)
 	fi
 	exit "$status"
@@ -45,10 +45,10 @@ trap rollback ERR
 docker image tag "$candidate_id" "$live_image"
 deploy_started=true
 cd "$app_dir"
-docker compose up -d --no-build --no-deps --force-recreate app api agent
+docker compose -f ops/ada/compose.yml up -d --no-build --no-deps --force-recreate app api agent
 
 for service in app api agent; do
-	container_id=$(docker compose ps -q "$service")
+	container_id=$(docker compose -f ops/ada/compose.yml ps -q "$service")
 	[[ -n $container_id ]]
 	[[ $(docker inspect --format '{{.State.Running}}' "$container_id") == true ]]
 	[[ $(docker inspect --format '{{.Image}}' "$container_id") == "$candidate_id" ]]
@@ -60,7 +60,7 @@ sign_in_page=$(curl --fail --silent --show-error --max-time 20 \
 	http://127.0.0.1:3000/sign-in)
 grep --fixed-strings --quiet '<title>Sign in · Comp AI CRM</title>' <<<"$sign_in_page"
 
-docker compose exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET" && wget -qO- --header="Authorization: Bearer $AGENT_BRIDGE_SECRET" http://agent:2000/eve/v1/info >/dev/null'
+docker compose -f ops/ada/compose.yml exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET" && wget -qO- --header="Authorization: Bearer $AGENT_BRIDGE_SECRET" http://agent:2000/eve/v1/info >/dev/null'
 
 trap - ERR
 printf '%s\n' "Deployed $sha."
