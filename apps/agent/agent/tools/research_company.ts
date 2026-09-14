@@ -1,4 +1,4 @@
-import { ActivityType, db } from "@crm/db";
+import { ActivityType, Prisma, db } from "@crm/db";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { companyResearch } from "../lib/company-research";
@@ -56,7 +56,7 @@ export default defineTool({
 					source: "bright-data",
 					endpoint: "company-page",
 					agent: "people-research",
-					evidence: result.raw,
+					evidence: result.raw as Prisma.InputJsonValue,
 				},
 			},
 			select: { id: true },

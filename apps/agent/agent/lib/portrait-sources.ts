@@ -64,7 +64,7 @@ async function fromEmployerSite(
 ): Promise<PortraitCandidate | null> {
 	const result = await companyResearch.read(`https://${subject.companyDomain}`);
 	if (result.outcome !== "found") return null;
-	for (const match of result.text.matchAll(employeeImage)) {
+	for (const match of result.document.matchAll(employeeImage)) {
 		const name = match[1] ?? match[4] ?? null;
 		const photoUrl = match[2] ?? match[3] ?? null;
 		if (!name || !photoUrl || !namesMatch(name, subject.name)) continue;
