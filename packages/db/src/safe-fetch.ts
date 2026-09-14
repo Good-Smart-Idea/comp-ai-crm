@@ -25,10 +25,10 @@ export function isBlockedAddress(ip: string): boolean {
 		const first = groups[0] ?? 0;
 		return (
 			groups.every((group) => group === 0) ||
-		(groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) ||
-		(first & 0xfe00) === 0xfc00 ||
-		(first & 0xffc0) === 0xfe80 ||
-		(first & 0xff00) === 0xff00
+			(groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) ||
+			(first & 0xfe00) === 0xfc00 ||
+			(first & 0xffc0) === 0xfe80 ||
+			(first & 0xff00) === 0xff00
 		);
 	}
 
@@ -90,7 +90,9 @@ async function publicAddresses(
 ): Promise<LookupAddress[]> {
 	const literal = hostname.replace(/^\[|\]$/g, "");
 	if (net.isIP(literal))
-		return isBlockedAddress(literal) ? [] : [{ address: literal, family: net.isIP(literal) }];
+		return isBlockedAddress(literal)
+			? []
+			: [{ address: literal, family: net.isIP(literal) }];
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
@@ -103,7 +105,8 @@ async function publicAddresses(
 				);
 			}),
 		]);
-		return addresses.length > 0 && addresses.every((address) => !isBlockedAddress(address.address))
+		return addresses.length > 0 &&
+			addresses.every((address) => !isBlockedAddress(address.address))
 			? addresses
 			: [];
 	} catch {
@@ -150,8 +153,9 @@ export async function safeFetch(
 		)
 			return null;
 		const addresses = await publicAddresses(target.hostname, timeoutMs);
-		if (addresses.length === 0) return null;
-		const response = await pinnedFetch(target, addresses[0]!, {
+		const firstAddress = addresses[0];
+		if (!firstAddress) return null;
+		const response = await pinnedFetch(target, firstAddress, {
 			method,
 			timeoutMs,
 			headers,
