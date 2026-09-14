@@ -213,7 +213,6 @@ export default defineChannel({
 				? Response.json({ error: outcome.error }, { status: 422 })
 				: Response.json({ channel: outcome });
 		}),
-
 	],
 
 	events: {

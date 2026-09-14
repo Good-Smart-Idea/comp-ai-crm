@@ -2,7 +2,7 @@ import "@crm/env/load";
 
 import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { onTelemetryProblem, syncVersion } from "@crm/telemetry";
-import { defineAgent, defineDynamic, type AgentDefinition } from "eve";
+import { type AgentDefinition, defineAgent, defineDynamic } from "eve";
 import { logCapabilities } from "./lib/capabilities";
 import { selectedModel } from "./lib/model";
 import { gsiModel } from "./lib/model-gateway";
@@ -13,7 +13,7 @@ void syncVersion();
 
 export default defineAgent({
 	model: defineDynamic({
-		fallback: gsiModel("local"),
+		fallback: gsiModel(DEFAULT_AGENT_MODEL.id),
 		events: {
 			"step.started": async () => {
 				const selected = await selectedModel();

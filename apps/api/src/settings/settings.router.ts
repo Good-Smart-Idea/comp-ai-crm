@@ -6,8 +6,8 @@ import { restMeta } from "../trpc/openapi";
 import {
 	agentModelOutput,
 	archiveRetentionOutput,
-	modelCatalogOutput,
 	companyResearchProviderOutput,
+	modelCatalogOutput,
 	setAgentModelInput,
 	setArchiveRetentionDaysInput,
 } from "./settings.contracts";

@@ -147,7 +147,9 @@ export class RollupService {
 			members_bucket: bucket(members),
 
 			cap_perplexity: isSet("PERPLEXITY_API_KEY"),
-			cap_bright_data: isSet("BRIGHT_DATA_WEB_UNLOCKER_API_KEY") || isSet("BRIGHT_DATA_ISP_API_KEY"),
+			cap_bright_data:
+				isSet("BRIGHT_DATA_WEB_UNLOCKER_API_KEY") ||
+				isSet("BRIGHT_DATA_ISP_API_KEY"),
 			cap_blob: isSet("BLOB_READ_WRITE_TOKEN"),
 			cap_github: isSet("GITHUB_TOKEN"),
 			cap_redis: isSet("REDIS_URL"),

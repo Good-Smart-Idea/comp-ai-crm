@@ -46,10 +46,19 @@ export class SettingsService {
 			return this.agentModel();
 		}
 		const models = await this.catalog.models();
-		if (!models) throw new BadRequestException("Could not reach the model catalog. Try again in a moment.");
+		if (!models)
+			throw new BadRequestException(
+				"Could not reach the model catalog. Try again in a moment.",
+			);
 		const chosen = models.find((model) => model.id === modelId);
-		if (!chosen) throw new BadRequestException(`The managed catalog does not serve a tool-using model called "${modelId}".`);
-		await writeAgentModel(this.db, { id: chosen.id, contextWindowTokens: chosen.contextWindowTokens });
+		if (!chosen)
+			throw new BadRequestException(
+				`The managed catalog does not serve a tool-using model called "${modelId}".`,
+			);
+		await writeAgentModel(this.db, {
+			id: chosen.id,
+			contextWindowTokens: chosen.contextWindowTokens,
+		});
 		this.logger.log({ message: "Agent model changed", modelId: chosen.id });
 		return this.agentModel();
 	}
@@ -61,10 +70,16 @@ export class SettingsService {
 
 	companyResearchProvider(): CompanyResearchProviderSettings {
 		const configured = Boolean(
-			(process.env.BRIGHT_DATA_WEB_UNLOCKER_URL?.trim() || process.env.BRIGHT_DATA_ISP_URL?.trim()) &&
-				(process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY?.trim() || process.env.BRIGHT_DATA_ISP_API_KEY?.trim()),
+			(process.env.BRIGHT_DATA_WEB_UNLOCKER_URL?.trim() ||
+				process.env.BRIGHT_DATA_ISP_URL?.trim()) &&
+				(process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY?.trim() ||
+					process.env.BRIGHT_DATA_ISP_API_KEY?.trim()),
 		);
-		return { configured, provider: "Bright Data", status: configured ? "available" : "unavailable" };
+		return {
+			configured,
+			provider: "Bright Data",
+			status: configured ? "available" : "unavailable",
+		};
 	}
 
 	async archiveRetention(): Promise<ArchiveRetentionSettings> {

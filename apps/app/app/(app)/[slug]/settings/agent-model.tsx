@@ -112,7 +112,8 @@ export function AgentModel() {
 			<CardHeader>
 				<CardTitle>Research agent</CardTitle>
 				<CardDescription>
-					The model the agent thinks with, routed through the managed GSI gateway.
+					The model the agent thinks with, routed through the managed GSI
+					gateway.
 				</CardDescription>
 			</CardHeader>
 
@@ -161,7 +162,10 @@ export function AgentModel() {
 												>
 													<span>{model.name}</span>
 													<span className="ml-auto text-muted-foreground text-xs">
-														{price ?? contextHint(model.contextWindowTokens)}
+														{model.source
+															? `${model.source} · ${price ?? contextHint(model.contextWindowTokens)}`
+															: (price ??
+																contextHint(model.contextWindowTokens))}
 													</span>
 												</CommandItem>
 											);

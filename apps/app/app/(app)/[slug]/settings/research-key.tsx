@@ -13,7 +13,9 @@ import { useTRPC } from "@/lib/trpc/client";
 
 export function CompanyResearchProvider() {
 	const trpc = useTRPC();
-	const provider = useQuery(trpc.settings.companyResearchProvider.queryOptions());
+	const provider = useQuery(
+		trpc.settings.companyResearchProvider.queryOptions(),
+	);
 	if (!provider.data) return null;
 	const { configured, provider: name } = provider.data;
 	return (
@@ -21,13 +23,18 @@ export function CompanyResearchProvider() {
 			<CardHeader>
 				<CardTitle>Company research</CardTitle>
 				<CardDescription>
-					Ada manages this connector. Browser users cannot add or view provider credentials.
+					Ada manages this connector. Browser users cannot add or view provider
+					credentials.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="flex items-center justify-between gap-3">
 					<span>{name}</span>
-					<StatusIndicator size="sm" tone={configured ? "success" : "warning"} label={configured ? "Available" : "Unavailable"} />
+					<StatusIndicator
+						size="sm"
+						tone={configured ? "success" : "warning"}
+						label={configured ? "Available" : "Unavailable"}
+					/>
 				</div>
 			</CardContent>
 		</Card>

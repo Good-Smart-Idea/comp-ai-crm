@@ -19,11 +19,20 @@ fail() {
 [[ $(stat -c '%U:%G' "$env_file") == root:root ]] || fail "$env_file must be owned by root:root."
 
 sha=${1,,}
+[[ $(git -C "$app_dir" rev-parse HEAD) == "$sha" ]] || fail "The application source does not match $sha."
 candidate_image=gsi/compcrm:$sha
-candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image") || fail "Image $candidate_image does not exist."
+previous_id=$(docker image inspect --format '{{.Id}}' "$live_image") || fail "Live image $live_image does not exist."
+
+docker build \
+	--file "$app_dir/ops/ada/Dockerfile" \
+	--build-arg API_URL="$(grep -m1 '^API_URL=' "$env_file" | cut -d= -f2-)" \
+	--build-arg APP_URL="$(grep -m1 '^APP_URL=' "$env_file" | cut -d= -f2-)" \
+	--build-arg REVISION="$sha" \
+	--tag "$candidate_image" \
+	"$app_dir"
+candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
 candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate_id")
 [[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
-previous_id=$(docker image inspect --format '{{.Id}}' "$live_image") || fail "Live image $live_image does not exist."
 
 export IMAGE=$live_image
 deploy_started=false

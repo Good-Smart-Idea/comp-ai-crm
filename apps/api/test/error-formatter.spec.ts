@@ -16,13 +16,29 @@ describe("what a rejected form says", () => {
 	});
 
 	it("never leaks the machinery a reader cannot act on", () => {
-		const shown = readableInputError("ignored", causeOf(setAgentModelInput, { modelId: "" })) ?? "";
-		for (const noise of ["too_small", "minimum", "inclusive", "path", "[", "{"]) {
+		const shown =
+			readableInputError(
+				"ignored",
+				causeOf(setAgentModelInput, { modelId: "" }),
+			) ?? "";
+		for (const noise of [
+			"too_small",
+			"minimum",
+			"inclusive",
+			"path",
+			"[",
+			"{",
+		]) {
 			expect(shown).not.toContain(noise);
 		}
 	});
 
 	it("names the field when zod's own default says nothing", () => {
-		expect(readableInputError("ignored", causeOf(z.object({ website: z.string() }), {})).toContain("website");
+		expect(
+			readableInputError(
+				"ignored",
+				causeOf(z.object({ website: z.string() }), {}),
+			),
+		).toContain("website");
 	});
 });

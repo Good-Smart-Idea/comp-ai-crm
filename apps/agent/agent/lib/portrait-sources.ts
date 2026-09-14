@@ -67,7 +67,9 @@ export async function findPortrait(
 	}
 
 	if (subject.companyDomain && subject.name && !researchReady) {
-		tried.push("Bright Data is not connected, so the company site was not read");
+		tried.push(
+			"Bright Data is not connected, so the company site was not read",
+		);
 	}
 
 	if (subject.companyDomain && subject.name && researchReady) {
@@ -82,7 +84,8 @@ export async function findPortrait(
 	return { found: false, tried };
 }
 
-const employeeImage = /<img[^>]+(?:alt=["']([^"']+)["'][^>]+src=["']([^"']+)["']|src=["']([^"']+)["'][^>]+alt=["']([^"']+)["'])/gi;
+const employeeImage =
+	/<img[^>]+(?:alt=["']([^"']+)["'][^>]+src=["']([^"']+)["']|src=["']([^"']+)["'][^>]+alt=["']([^"']+)["'])/gi;
 
 async function fromEmployerSite(
 	subject: PortraitSubject,

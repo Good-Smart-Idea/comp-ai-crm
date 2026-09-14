@@ -53,11 +53,15 @@ const unavailable = (): PersonMatch => ({
 	reason: "A managed person research provider is not configured.",
 });
 
-export async function personByProfileUrl(_profileUrl: string): Promise<PersonMatch> {
+export async function personByProfileUrl(
+	_profileUrl: string,
+): Promise<PersonMatch> {
 	return unavailable();
 }
 
-export async function personByClues(_clues: IdentityClues): Promise<PersonMatch> {
+export async function personByClues(
+	_clues: IdentityClues,
+): Promise<PersonMatch> {
 	return unavailable();
 }
 

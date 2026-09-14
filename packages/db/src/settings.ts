@@ -52,7 +52,6 @@ export async function writeAgentModel(
 	});
 }
 
-
 export async function readReportingCurrency(db: Db): Promise<string> {
 	const row = await db.appSetting.findUnique({
 		where: { id: SETTINGS_ID },

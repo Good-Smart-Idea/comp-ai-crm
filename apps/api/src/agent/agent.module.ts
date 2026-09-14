@@ -19,10 +19,6 @@ import { DispatchHeartbeatService } from "./dispatch-heartbeat.service";
 		AgentsRouter,
 		DispatchHeartbeatService,
 	],
-	exports: [
-		AgentAccessService,
-		AgentTriggerService,
-		AgentQueueService,
-	],
+	exports: [AgentAccessService, AgentTriggerService, AgentQueueService],
 })
 export class AgentModule {}

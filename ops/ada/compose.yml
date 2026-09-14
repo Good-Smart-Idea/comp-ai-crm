@@ -23,6 +23,7 @@ services:
         condition: service_started
     networks:
       - backend
+      - egress
 
   api:
     image: ${IMAGE:?Set IMAGE to the reviewed image tag}
@@ -47,15 +48,19 @@ services:
     restart: unless-stopped
     env_file: ../../.env
     command: bun --cwd apps/app start -p 3000
+    environment:
+      AGENT_URL: http://agent:2000
     depends_on:
       api:
         condition: service_started
     ports:
       - "127.0.0.1:3000:3000"
     networks:
+      - backend
       - web
 
 networks:
   backend:
     internal: true
+  egress:
   web:

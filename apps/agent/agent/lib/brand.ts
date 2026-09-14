@@ -44,7 +44,7 @@ const COMPANY_FIELDS = {
 
 export async function runBrand({
 	companyId,
-	fresh = false,
+	fresh: _fresh = false,
 	spend = FREE,
 }: {
 	companyId: string;
@@ -59,7 +59,8 @@ export async function runBrand({
 	if (!company) return { enriched: false, reason: "No such company." };
 
 	if (!companyResearch.available()) {
-		const reason = "Bright Data is not configured, so there is nowhere to look.";
+		const reason =
+			"Bright Data is not configured, so there is nowhere to look.";
 		await settle(companyId, EnrichmentStatus.SKIPPED, reason);
 		return { enriched: false, reason };
 	}

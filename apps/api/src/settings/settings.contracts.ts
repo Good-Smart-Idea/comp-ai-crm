@@ -54,7 +54,6 @@ export const setAgentModelInput = z.object({
 
 export type SetAgentModelInput = z.infer<typeof setAgentModelInput>;
 
-
 export const setArchiveRetentionDaysInput = z.object({
 	days: z
 		.number()
