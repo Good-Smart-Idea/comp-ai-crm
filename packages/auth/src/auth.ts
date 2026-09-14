@@ -266,6 +266,12 @@ export const auth = betterAuth({
 						});
 					}
 
+					if (!user.emailVerified) {
+						throw new APIError("FORBIDDEN", {
+							message: "This CRM requires a verified sign-in email.",
+						});
+					}
+
 					if (!isWorkspaceEmail(user.email)) {
 						const domain = primaryWorkspaceDomain();
 						throw new APIError("FORBIDDEN", {

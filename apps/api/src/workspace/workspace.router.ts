@@ -1,4 +1,5 @@
-import { Inject } from "@nestjs/common";
+import { isTrustedOrigin } from "@crm/auth";
+import { ForbiddenException, Inject } from "@nestjs/common";
 import {
 	Ctx,
 	Input,
@@ -7,17 +8,20 @@ import {
 	Router,
 	UseMiddlewares,
 } from "nestjs-trpc";
-import type { z } from "zod";
+import { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { restMeta } from "../trpc/openapi";
 import {
 	memberListInput,
 	memberListOutput,
+	preauthorizationIdInput,
+	preauthorizeMemberInput,
 	setMemberRoleInput,
 	updateWorkspaceInput,
 	workspaceMemberOutput,
 	workspaceOutput,
+	workspacePreauthorizationOutput,
 } from "./workspace.contracts";
 import { WorkspaceService } from "./workspace.service";
 
@@ -48,6 +52,14 @@ export class WorkspaceRouter {
 		return this.workspace.members(ctx.user.id, input);
 	}
 
+	@Query({
+		output: z.array(workspacePreauthorizationOutput),
+		meta: restMeta("GET", "/workspace/preauthorizations", ["Workspace"]),
+	})
+	async preauthorizations(@Ctx() ctx: AuthedTrpcContext) {
+		return this.workspace.preauthorizations(ctx.user.id);
+	}
+
 	@Mutation({
 		input: updateWorkspaceInput,
 		output: workspaceOutput,
@@ -57,6 +69,7 @@ export class WorkspaceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof updateWorkspaceInput>,
 	) {
+		this.assertMutationOrigin(ctx);
 		return this.workspace.update(ctx.user.id, input);
 	}
 
@@ -71,6 +84,42 @@ export class WorkspaceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setMemberRoleInput>,
 	) {
+		this.assertMutationOrigin(ctx);
 		return this.workspace.setMemberRole(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: preauthorizeMemberInput,
+		output: workspacePreauthorizationOutput,
+		meta: restMeta("POST", "/workspace/preauthorizations", ["Workspace"]),
+	})
+	async preauthorize(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof preauthorizeMemberInput>,
+	) {
+		this.assertMutationOrigin(ctx);
+		return this.workspace.preauthorize(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: preauthorizationIdInput,
+		output: z.object({ id: z.string() }),
+		meta: restMeta("DELETE", "/workspace/preauthorizations/{id}", [
+			"Workspace",
+		]),
+	})
+	async revokePreauthorization(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input("id") id: string,
+	) {
+		this.assertMutationOrigin(ctx);
+		return this.workspace.revokePreauthorization(ctx.user.id, id);
+	}
+
+	private assertMutationOrigin(ctx: AuthedTrpcContext): void {
+		const origin = ctx.req?.headers.origin;
+		if (typeof origin !== "string" || !isTrustedOrigin(origin)) {
+			throw new ForbiddenException("The request origin is not trusted.");
+		}
 	}
 }

@@ -31,7 +31,7 @@ import { agentModelOutput, modelCatalogOutput, setAgentModelInput, companyResear
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
-import { workspaceOutput, memberListInput, memberListOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput } from "../workspace/workspace.contracts";
+import { workspaceOutput, memberListInput, memberListOutput, preauthorizationIdInput, preauthorizeMemberInput, setMemberRoleInput, updateWorkspaceInput, workspaceMemberOutput, workspacePreauthorizationOutput } from "../workspace/workspace.contracts";
 import type { UsersRouter } from "../users/users.router";
 
 const appRouter = t.router({
@@ -738,6 +738,9 @@ const appRouter = t.router({
       .input(memberListInput)
       .output(memberListOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    preauthorizations: publicProcedure
+      .output(z.array(workspacePreauthorizationOutput))
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     update: publicProcedure
       .input(updateWorkspaceInput)
       .output(workspaceOutput)
@@ -745,6 +748,14 @@ const appRouter = t.router({
     setMemberRole: publicProcedure
       .input(setMemberRoleInput)
       .output(workspaceMemberOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    preauthorize: publicProcedure
+      .input(preauthorizeMemberInput)
+      .output(workspacePreauthorizationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    revokePreauthorization: publicProcedure
+      .input(preauthorizationIdInput)
+      .output(z.object({ id: z.string() }))
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     })
 });

@@ -1,6 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
-import { ensureWorkspaceMembership, WORKSPACE_ID } from "../src/organization";
+import {
+	ensureWorkspaceMembership,
+	WORKSPACE_ID,
+} from "../src/organization";
 
 const suffix = process.env.TEST_RUN_ID ?? "organization-spec";
 
@@ -15,6 +18,7 @@ const seedUser = async (label: string, createdAt: Date): Promise<string> => {
 			id: `${suffix}-${label}`,
 			name: label,
 			email: emailOf(label),
+			emailVerified: true,
 			createdAt,
 			updatedAt: createdAt,
 		},
@@ -53,6 +57,7 @@ const clear = async () => {
 };
 
 beforeEach(async () => {
+	process.env.ALLOWED_SIGN_IN = "example.test,mihai@goodsmartidea.com";
 	await clear();
 
 	firstId = await seedUser("first", new Date("2020-01-01T00:00:00Z"));
@@ -118,5 +123,91 @@ describe("ensureWorkspaceMembership", () => {
 		});
 
 		expect(owners).toBe(1);
+	});
+
+	it("stores Mihai as pending without creating a user", async () => {
+		await ensureWorkspaceMembership(firstId);
+
+		expect(
+			await db.user.findUnique({
+				where: { email: "mihai@goodsmartidea.com" },
+			}),
+		).toBeNull();
+		expect(
+			await db.workspacePreauthorization.findUnique({
+				where: {
+					organizationId_email: {
+						organizationId: WORKSPACE_ID,
+						email: "mihai@goodsmartidea.com",
+					},
+				},
+			}),
+		).not.toBeNull();
+	});
+
+	it("refuses an unverified or forged email", async () => {
+		const unverified = await db.user.create({
+			data: {
+				id: `${suffix}-unverified`,
+				name: "Unverified",
+				email: `unverified.${suffix}@example.test`,
+				emailVerified: false,
+			},
+			select: { id: true },
+		});
+
+		expect(await ensureWorkspaceMembership(unverified.id)).toBeUndefined();
+		expect(await roleOf(unverified.id)).toBeNull();
+		await db.user.delete({ where: { id: unverified.id } });
+
+		const forged = await db.user.create({
+			data: {
+				id: `${suffix}-forged`,
+				name: "Forged",
+				email: `forged.${suffix}@mail.example.test`,
+				emailVerified: true,
+			},
+			select: { id: true },
+		});
+		expect(await ensureWorkspaceMembership(forged.id)).toBeUndefined();
+		expect(await roleOf(forged.id)).toBeNull();
+		await db.user.delete({ where: { id: forged.id } });
+	});
+
+	it("atomically gives Mihai the pending member role once", async () => {
+		await ensureWorkspaceMembership(firstId);
+		const mihai = await db.user.create({
+			data: {
+				id: `${suffix}-mihai`,
+				name: "Mihai",
+				email: "mihai@goodsmartidea.com",
+				emailVerified: true,
+			},
+			select: { id: true },
+		});
+
+		const results = await Promise.all(
+			Array.from({ length: 4 }, () => ensureWorkspaceMembership(mihai.id)),
+		);
+
+		expect(results).toEqual(Array(4).fill(WORKSPACE_ID));
+		expect(await roleOf(mihai.id)).toBe("member");
+		expect(await roleOf(firstId)).toBe("owner");
+		expect(
+			await db.member.count({
+				where: { organizationId: WORKSPACE_ID, userId: mihai.id },
+			}),
+		).toBe(1);
+		expect(
+			await db.workspacePreauthorization.findUnique({
+				where: {
+					organizationId_email: {
+						organizationId: WORKSPACE_ID,
+						email: "mihai@goodsmartidea.com",
+					},
+				},
+			}),
+		).toBeNull();
+		await db.user.delete({ where: { id: mihai.id } });
 	});
 });

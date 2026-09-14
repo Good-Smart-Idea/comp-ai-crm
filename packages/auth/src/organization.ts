@@ -1,11 +1,16 @@
 import { type Db, db } from "@crm/db";
 import { WORKSPACE_ID, workspaceSlug } from "@crm/db/workspace";
+import { isWorkspaceEmail, normalizeWorkspaceEmail } from "./workspace";
 
 export { WORKSPACE_ID };
 
 export const DEFAULT_WORKSPACE_NAME = "CRM";
 
 export const WORKSPACE_ROLES = ["owner", "admin", "member"] as const;
+
+export const DEFAULT_WORKSPACE_PREAUTHORIZATIONS = [
+	{ email: "mihai@goodsmartidea.com", role: "member" },
+] as const;
 
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
@@ -22,6 +27,10 @@ export function canRenameWorkspace(role: WorkspaceRole | null): boolean {
 }
 
 export function canChangeRole(role: WorkspaceRole | null): boolean {
+	return isWorkspaceAdmin(role);
+}
+
+export function canManagePreauthorizations(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
@@ -55,7 +64,6 @@ export async function ensureWorkspaceMembership(
 			});
 
 			const slug = workspaceSlug(workspace.name);
-
 			if (workspace.slug !== slug) {
 				await tx.organization.update({
 					where: { id: workspace.id },
@@ -66,25 +74,66 @@ export async function ensureWorkspaceMembership(
 			const enrolled = await tx.member.count({
 				where: { organizationId: workspace.id },
 			});
+			if (enrolled === 0) {
+				await tx.workspacePreauthorization.createMany({
+					data: DEFAULT_WORKSPACE_PREAUTHORIZATIONS.map(
+						(preauthorization) => ({
+							id: `workspace-preauthorization-${preauthorization.email.replace("@", "-").replaceAll(".", "-")}`,
+							organizationId: workspace.id,
+							email: preauthorization.email,
+							role: preauthorization.role,
+						}),
+					),
+					skipDuplicates: true,
+				});
+			}
+
+			const user = await tx.user.findUnique({
+				where: { id: userId },
+				select: { email: true, emailVerified: true },
+			});
+			if (!user?.emailVerified || !isWorkspaceEmail(user.email)) {
+				return undefined;
+			}
+
+			const preauthorizations = await tx.workspacePreauthorization.findMany({
+				where: { organizationId: workspace.id },
+				select: { id: true, email: true, role: true },
+			});
+			const roleByEmail = new Map(
+				preauthorizations.map((preauthorization) => [
+					preauthorization.email,
+					toWorkspaceRole(preauthorization.role),
+				]),
+			);
 
 			if (enrolled === 0) {
 				const existing = await tx.user.findMany({
-					select: { id: true },
+					where: { emailVerified: true },
+					select: { id: true, email: true },
 					orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 				});
+				const eligible = existing.filter((candidate) =>
+					isWorkspaceEmail(candidate.email),
+				);
 
 				await tx.member.createMany({
-					data: existing.map((user, index) => ({
+					data: eligible.map((candidate, index) => ({
 						id: crypto.randomUUID(),
 						organizationId: workspace.id,
-						userId: user.id,
-						role: index === 0 ? "owner" : "member",
+						userId: candidate.id,
+						role:
+							roleByEmail.get(normalizeWorkspaceEmail(candidate.email) ?? "") ??
+							(index === 0 ? "owner" : "member"),
 						createdAt: new Date(),
 					})),
 					skipDuplicates: true,
 				});
 			}
 
+			const preauthorization = preauthorizations.find(
+				(candidate) => candidate.email === normalizeWorkspaceEmail(user.email),
+			);
 			await tx.member.upsert({
 				where: {
 					organizationId_userId: { organizationId: workspace.id, userId },
@@ -93,11 +142,19 @@ export async function ensureWorkspaceMembership(
 					id: crypto.randomUUID(),
 					organizationId: workspace.id,
 					userId,
-					role: "member",
+					role: preauthorization
+						? toWorkspaceRole(preauthorization.role)
+						: "member",
 					createdAt: new Date(),
 				},
 				update: {},
 			});
+
+			if (preauthorization) {
+				await tx.workspacePreauthorization.delete({
+					where: { id: preauthorization.id },
+				});
+			}
 
 			return workspace.id;
 		});

@@ -45,8 +45,14 @@ here, what do we sell.
   has turned the plugin into tenancy plumbing.
 - **Signing in is the join; no invite flow.** `ensureWorkspaceMembership` runs in
   `databaseHooks.session.create.before` and **degrades, never throws** — a throw fails
-  the session create and locks everyone out. The plugin's `invitation` table is unused.
-- **First account is owner**, and the hook enrols pre-existing users, oldest first.
+  the session create and locks everyone out. The hook reads the authenticated `User`
+  row. Its email must be verified and match `ALLOWED_SIGN_IN` exactly. The plugin's
+  `invitation` table is unused.
+- **A preauthorization is pending data, not a User.** An owner or admin creates it for
+  one exact allow-listed email. The same transaction creates membership with its role
+  and removes the pending row after that email first signs in with verification.
+- **First account is owner**, and the hook enrols pre-existing eligible users, oldest
+  first.
 - **Permissions come from `@crm/auth`** — `canRenameWorkspace`, `canChangeRole`,
   `canConfigureSso`, `canManageCurrency` — enforced by the service *and* used to
   disable the UI control, so the button and the 403 cannot disagree.
