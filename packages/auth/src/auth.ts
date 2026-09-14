@@ -289,9 +289,11 @@ export const auth = betterAuth({
 		session: {
 			create: {
 				before: async (session) => {
-					const workspaceId = await ensureWorkspaceMembershipForVerifiedSession({
-						userId: session.userId,
-					});
+					const workspaceId = await ensureWorkspaceMembershipForVerifiedSession(
+						{
+							userId: session.userId,
+						},
+					);
 
 					return {
 						data: { ...session, activeOrganizationId: workspaceId ?? null },

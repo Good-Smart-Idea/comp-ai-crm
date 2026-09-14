@@ -31,7 +31,7 @@ import { agentModelOutput, modelCatalogOutput, setAgentModelInput, companyResear
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
-import { workspaceOutput, memberListInput, memberListOutput, preauthorizationIdInput, preauthorizeMemberInput, setMemberRoleInput, updateWorkspaceInput, workspaceMemberOutput, workspacePreauthorizationOutput } from "../workspace/workspace.contracts";
+import { workspaceOutput, memberListInput, memberListOutput, workspacePreauthorizationOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput, preauthorizeMemberInput, preauthorizationIdInput } from "../workspace/workspace.contracts";
 import type { UsersRouter } from "../users/users.router";
 
 const appRouter = t.router({

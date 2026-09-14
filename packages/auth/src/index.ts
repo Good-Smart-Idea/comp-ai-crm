@@ -28,9 +28,9 @@ export {
 	isWorkspaceAdmin,
 	isWorkspaceRole,
 	toWorkspaceRole,
+	type VerifiedWorkspaceSession,
 	WORKSPACE_ID,
 	WORKSPACE_ROLES,
-	type VerifiedWorkspaceSession,
 	type WorkspaceRole,
 	workspaceRoleOf,
 } from "./organization";

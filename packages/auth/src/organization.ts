@@ -34,7 +34,9 @@ export function canChangeRole(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
-export function canManagePreauthorizations(role: WorkspaceRole | null): boolean {
+export function canManagePreauthorizations(
+	role: WorkspaceRole | null,
+): boolean {
 	return isWorkspaceAdmin(role);
 }
 
@@ -87,14 +89,12 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 			});
 			if (enrolled === 0) {
 				await tx.workspacePreauthorization.createMany({
-					data: DEFAULT_WORKSPACE_PREAUTHORIZATIONS.map(
-						(preauthorization) => ({
-							id: `workspace-preauthorization-${preauthorization.email.replace("@", "-").replaceAll(".", "-")}`,
-							organizationId: workspace.id,
-							email: preauthorization.email,
-							role: preauthorization.role,
-						}),
-					),
+					data: DEFAULT_WORKSPACE_PREAUTHORIZATIONS.map((preauthorization) => ({
+						id: `workspace-preauthorization-${preauthorization.email.replace("@", "-").replaceAll(".", "-")}`,
+						organizationId: workspace.id,
+						email: preauthorization.email,
+						role: preauthorization.role,
+					})),
 					skipDuplicates: true,
 				});
 			}
@@ -137,18 +137,15 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 			const preauthorization = preauthorizations.find(
 				(candidate) => candidate.email === normalizeWorkspaceEmail(user.email),
 			);
-			await tx.member.upsert({
-				where: {
-					organizationId_userId: { organizationId: workspace.id, userId },
-				},
-				create: {
+			await tx.member.createMany({
+				data: {
 					id: crypto.randomUUID(),
 					organizationId: workspace.id,
 					userId,
 					role: "member",
 					createdAt: new Date(),
 				},
-				update: {},
+				skipDuplicates: true,
 			});
 
 			if (preauthorization) {
@@ -161,7 +158,7 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 		});
 	} catch (error) {
 		console.error(
-			`[auth] could not enrol user ${userId} in workspace ${WORKSPACE_ID}; the next sign-in will retry`,
+			`[auth] could not enrol user ${session.userId} in workspace ${WORKSPACE_ID}; the next sign-in will retry`,
 			error,
 		);
 		return undefined;

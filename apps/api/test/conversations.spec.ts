@@ -36,7 +36,9 @@ beforeAll(async () => {
 		},
 	});
 	await db.agentConversation.deleteMany({ where: { userId } });
-	await db.member.deleteMany({ where: { id: { in: [memberId, otherMemberId] } } });
+	await db.member.deleteMany({
+		where: { id: { in: [memberId, otherMemberId] } },
+	});
 	await db.user.deleteMany({ where: { id: { in: [userId, otherUserId] } } });
 	await db.contact.deleteMany({ where: { email } });
 	await db.organization.upsert({
@@ -97,8 +99,12 @@ afterAll(async () => {
 		},
 	});
 	await db.contact.deleteMany({ where: { email } });
-	await db.agentConversation.deleteMany({ where: { userId: { in: [userId, otherUserId] } } });
-	await db.member.deleteMany({ where: { id: { in: [memberId, otherMemberId] } } });
+	await db.agentConversation.deleteMany({
+		where: { userId: { in: [userId, otherUserId] } },
+	});
+	await db.member.deleteMany({
+		where: { id: { in: [memberId, otherMemberId] } },
+	});
 	await db.user.deleteMany({ where: { id: { in: [userId, otherUserId] } } });
 });
 
@@ -206,12 +212,12 @@ describe("ConversationsService", () => {
 			userId,
 		);
 
-		await expect(service.builderById(conversation.id, otherUserId)).rejects.toThrow(
-			"No builder conversation",
-		);
-		await expect(service.markRead(conversation.id, otherUserId)).rejects.toThrow(
-			"No builder conversation",
-		);
+		await expect(
+			service.builderById(conversation.id, otherUserId),
+		).rejects.toThrow("No builder conversation");
+		await expect(
+			service.markRead(conversation.id, otherUserId),
+		).rejects.toThrow("No builder conversation");
 	});
 
 	it("does not mutate a conversation owned by another rep", async () => {

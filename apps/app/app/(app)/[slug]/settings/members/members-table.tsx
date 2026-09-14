@@ -3,6 +3,11 @@
 import OverflowMenuHorizontal from "@carbon/icons-react/es/OverflowMenuHorizontal";
 import { Button } from "@crm/ui/components/button";
 import {
+	DataTable,
+	type DataTableColumn,
+	type DataTableFacet,
+} from "@crm/ui/components/data-table";
+import {
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -13,26 +18,21 @@ import {
 	DialogTrigger,
 } from "@crm/ui/components/dialog";
 import {
-	Field,
-	FieldDescription,
-	FieldGroup,
-	FieldLabel,
-} from "@crm/ui/components/field";
-import { Input } from "@crm/ui/components/input";
-import { Separator } from "@crm/ui/components/separator";
-import {
-	DataTable,
-	type DataTableColumn,
-	type DataTableFacet,
-} from "@crm/ui/components/data-table";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@crm/ui/components/dropdown-menu";
+import {
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+} from "@crm/ui/components/field";
 import { Icon } from "@crm/ui/components/icon";
+import { Input } from "@crm/ui/components/input";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
+import { Separator } from "@crm/ui/components/separator";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
@@ -223,26 +223,32 @@ export function MembersTable() {
 	return (
 		<div className="flex min-h-0 flex-col gap-6">
 			<DataTable
-			query={query}
-			search={<ListSearch placeholder="Search by name or email…" />}
-			columns={columns(
-				workspace.data?.canChangeRoles ?? false,
-				(member, role) => setRole.mutate({ memberId: member.id, role }),
-				setRole.isPending,
-			)}
-			rows={members.data?.rows ?? []}
-			total={members.data?.total ?? 0}
-			facetCounts={facetCounts}
-			facets={facets}
-			getRowId={(row) => row.id}
-			loading={members.isFetching}
-			empty="Nobody matches this view."
+				query={query}
+				search={<ListSearch placeholder="Search by name or email…" />}
+				columns={columns(
+					workspace.data?.canChangeRoles ?? false,
+					(member, role) => setRole.mutate({ memberId: member.id, role }),
+					setRole.isPending,
+				)}
+				rows={members.data?.rows ?? []}
+				total={members.data?.total ?? 0}
+				facetCounts={facetCounts}
+				facets={facets}
+				getRowId={(row) => row.id}
+				loading={members.isFetching}
+				empty="Nobody matches this view."
 			/>
 
-			<section className="flex flex-col gap-3" aria-labelledby="pending-members">
+			<section
+				className="flex flex-col gap-3"
+				aria-labelledby="pending-members"
+			>
 				<div className="flex items-center justify-between gap-3">
 					<div className="flex flex-col gap-1">
-						<h2 id="pending-members" className="font-heading text-sm font-medium">
+						<h2
+							id="pending-members"
+							className="font-heading text-sm font-medium"
+						>
 							Pending members
 						</h2>
 						<p className="text-muted-foreground text-xs">
@@ -301,29 +307,35 @@ export function MembersTable() {
 				</div>
 				{preauthorizations.data && preauthorizations.data.length > 0 ? (
 					<ul className="flex flex-col gap-2">
-						{preauthorizations.data.map((preauthorization: PreauthorizationRow) => (
-							<li key={preauthorization.id} className="flex flex-col gap-2">
-								<div className="flex items-center justify-between gap-3">
-									<span className="truncate text-sm">{preauthorization.email}</span>
-									<span className="flex items-center gap-2 text-muted-foreground text-xs">
-										{ROLE_LABEL[preauthorization.role]}
-										{canManagePreauthorizations ? (
-											<Button
-												variant="ghost"
-												size="sm"
-												disabled={revokePreauthorization.isPending}
-												onClick={() =>
-													revokePreauthorization.mutate({ id: preauthorization.id })
-												}
-											>
-												Revoke
-											</Button>
-										) : null}
-									</span>
-								</div>
-								<Separator />
-							</li>
-						))}
+						{preauthorizations.data.map(
+							(preauthorization: PreauthorizationRow) => (
+								<li key={preauthorization.id} className="flex flex-col gap-2">
+									<div className="flex items-center justify-between gap-3">
+										<span className="truncate text-sm">
+											{preauthorization.email}
+										</span>
+										<span className="flex items-center gap-2 text-muted-foreground text-xs">
+											{ROLE_LABEL[preauthorization.role]}
+											{canManagePreauthorizations ? (
+												<Button
+													variant="ghost"
+													size="sm"
+													disabled={revokePreauthorization.isPending}
+													onClick={() =>
+														revokePreauthorization.mutate({
+															id: preauthorization.id,
+														})
+													}
+												>
+													Revoke
+												</Button>
+											) : null}
+										</span>
+									</div>
+									<Separator />
+								</li>
+							),
+						)}
 					</ul>
 				) : (
 					<p className="text-muted-foreground text-xs">No pending members.</p>

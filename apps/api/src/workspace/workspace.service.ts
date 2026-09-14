@@ -2,10 +2,10 @@ import {
 	canChangeRole,
 	canManagePreauthorizations,
 	canRenameWorkspace,
-	isWorkspaceEmail,
-	normalizeWorkspaceEmail,
 	ensureWorkspaceMembership,
+	isWorkspaceEmail,
 	isWorkspaceRole,
+	normalizeWorkspaceEmail,
 	WORKSPACE_ID,
 	type WorkspaceRole,
 	workspaceRoleOf,
@@ -217,7 +217,9 @@ export class WorkspaceService {
 			select: { id: true },
 		});
 		if (member) {
-			throw new BadRequestException("That person is already a workspace member.");
+			throw new BadRequestException(
+				"That person is already a workspace member.",
+			);
 		}
 
 		const preauthorization = await this.db.workspacePreauthorization.upsert({

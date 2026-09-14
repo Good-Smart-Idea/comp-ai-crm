@@ -92,7 +92,9 @@ afterAll(async () => {
 	await db.workspacePreauthorization.deleteMany({
 		where: { email: { contains: suffix } },
 	});
-	await db.member.deleteMany({ where: { userId: { in: [ownerId, memberId] } } });
+	await db.member.deleteMany({
+		where: { userId: { in: [ownerId, memberId] } },
+	});
 	await db.user.deleteMany({ where: { id: { in: [ownerId, memberId] } } });
 });
 

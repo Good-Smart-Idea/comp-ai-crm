@@ -25,6 +25,13 @@ import {
 } from "./workspace.contracts";
 import { WorkspaceService } from "./workspace.service";
 
+function assertMutationOrigin(ctx: AuthedTrpcContext): void {
+	const origin = z.string().safeParse(ctx.req?.headers.origin);
+	if (!origin.success || !isTrustedOrigin(origin.data)) {
+		throw new ForbiddenException("The request origin is not trusted.");
+	}
+}
+
 @Router({ alias: "workspace" })
 @UseMiddlewares(AuthMiddleware)
 export class WorkspaceRouter {
@@ -69,7 +76,7 @@ export class WorkspaceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof updateWorkspaceInput>,
 	) {
-		this.assertMutationOrigin(ctx);
+		assertMutationOrigin(ctx);
 		return this.workspace.update(ctx.user.id, input);
 	}
 
@@ -84,7 +91,7 @@ export class WorkspaceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setMemberRoleInput>,
 	) {
-		this.assertMutationOrigin(ctx);
+		assertMutationOrigin(ctx);
 		return this.workspace.setMemberRole(ctx.user.id, input);
 	}
 
@@ -97,7 +104,7 @@ export class WorkspaceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof preauthorizeMemberInput>,
 	) {
-		this.assertMutationOrigin(ctx);
+		assertMutationOrigin(ctx);
 		return this.workspace.preauthorize(ctx.user.id, input);
 	}
 
@@ -112,14 +119,7 @@ export class WorkspaceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input("id") id: string,
 	) {
-		this.assertMutationOrigin(ctx);
+		assertMutationOrigin(ctx);
 		return this.workspace.revokePreauthorization(ctx.user.id, id);
-	}
-
-	private assertMutationOrigin(ctx: AuthedTrpcContext): void {
-		const origin = ctx.req?.headers.origin;
-		if (typeof origin !== "string" || !isTrustedOrigin(origin)) {
-			throw new ForbiddenException("The request origin is not trusted.");
-		}
 	}
 }
