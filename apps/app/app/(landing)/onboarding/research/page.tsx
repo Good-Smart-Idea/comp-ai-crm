@@ -1,10 +1,11 @@
+import { CONTEXT_DEV_SIGNUP_URL } from "@crm/db/settings";
 import type { Metadata } from "next";
 import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { requireMailboxAccess } from "@/lib/session";
 import { ResearchForm } from "./research-form";
 
 export const metadata: Metadata = {
-	title: "Research key",
+	title: "Company enrichment",
 };
 
 export const instant = false;
@@ -15,11 +16,11 @@ export default async function ResearchKeyPage() {
 	return (
 		<AuthShell>
 			<AuthHeading
-				title="Level up your CRM data"
-				description="Power your research agent with Context to research every company added to your CRM."
+				title="Company enrichment"
+				description="Connect Context now, or skip it and configure company enrichment later in Settings."
 			/>
 
-			<ResearchForm />
+			<ResearchForm signupUrl={CONTEXT_DEV_SIGNUP_URL} />
 		</AuthShell>
 	);
 }
