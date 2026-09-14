@@ -33,7 +33,7 @@ export function CompanyResearchProvider() {
 					<StatusIndicator
 						size="sm"
 						tone={configured ? "success" : "warning"}
-						label={configured ? "Available" : "Unavailable"}
+						label={configured ? "Configured" : "Unavailable"}
 					/>
 				</div>
 			</CardContent>

@@ -1,4 +1,6 @@
+import { Button } from "@crm/ui/components/button";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { requireMailboxAccess } from "@/lib/session";
 
@@ -13,6 +15,9 @@ export default async function ResearchKeyPage() {
 				title="Company research"
 				description="Ada manages the Bright Data connector. You can use the CRM while company research is unavailable."
 			/>
+			<Button asChild>
+				<Link href="/onboarding">Continue</Link>
+			</Button>
 		</AuthShell>
 	);
 }

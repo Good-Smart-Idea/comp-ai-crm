@@ -1202,7 +1202,7 @@ function BuilderFailureCard({
 		failure.kind === "rate-limit"
 			? "The managed model gateway rate-limited this model before it could start. Try again later or select another catalog model."
 			: failure.kind === "restricted"
-				? "This model requires paid AI Gateway credits. Add credits in Vercel, then try again."
+				? "This model requires managed gateway capacity. Select another catalog model or contact the operator."
 				: failure.kind === "credits"
 					? "The managed model gateway has no available capacity. Select another catalog model or contact the operator."
 					: "The builder could not finish this request. Try again.";

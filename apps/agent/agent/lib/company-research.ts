@@ -59,13 +59,19 @@ export interface CompanyResearchProvider {
 
 type Fetcher = typeof fetch;
 
+type BrightDataPageConfig = {
+	endpoint: string;
+	token: string;
+	zone: "web_unlocker" | "isp";
+};
+
 export class BrightDataCompanyResearch implements CompanyResearchProvider {
 	readonly name = "Bright Data";
 
 	constructor(private readonly fetcher: Fetcher = fetch) {}
 
 	available(): boolean {
-		return Boolean(this.unlockerUrl() && this.unlockerToken());
+		return this.pageConfig() !== null;
 	}
 
 	async lookup(domain: string): Promise<LookupResult> {
@@ -73,14 +79,33 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 			return { outcome: "skipped", reason: "Bright Data is not configured." };
 		}
 
-		const official = await this.officialUrl(domain);
+		const direct = await this.officialUrl(domain);
+		const discovered = direct ? null : await this.discoverOfficialUrl(domain);
+		const official = direct ?? discovered;
 		if (!official)
 			return {
 				outcome: "skipped",
 				reason: "No public company page matched this domain.",
 			};
 
-		const page = await this.read(official);
+		let page = await this.read(official);
+		if (page.outcome === "failed" && direct) {
+			const discoveredAfterFailure = await this.discoverOfficialUrl(domain);
+			if (discoveredAfterFailure && discoveredAfterFailure !== direct) {
+				page = await this.read(discoveredAfterFailure);
+				if (page.outcome === "found") {
+					return {
+						outcome: "found",
+						brand: brandFromPage(domain, discoveredAfterFailure, page.text),
+						raw: {
+							provider: "bright-data",
+							officialUrl: discoveredAfterFailure,
+							pages: [{ url: discoveredAfterFailure, content: page.text }],
+						},
+					};
+				}
+			}
+		}
 		if (page.outcome === "failed") {
 			return { outcome: "failed", reason: page.reason, retryable: true };
 		}
@@ -122,9 +147,8 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 				reason: "The company page URL is not public.",
 			};
 
-		const endpoint = this.unlockerUrl();
-		const token = this.unlockerToken();
-		if (!endpoint || !token)
+		const config = this.pageConfig();
+		if (!config)
 			return { outcome: "failed", reason: "Bright Data is not configured." };
 
 		for (
@@ -133,16 +157,16 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 			attempt += 1
 		) {
 			try {
-				const response = await this.fetcher(endpoint, {
+				const response = await this.fetcher(config.endpoint, {
 					method: "POST",
 					headers: {
-						authorization: `Bearer ${token}`,
+						authorization: `Bearer ${config.token}`,
 						"content-type": "application/json",
 						accept: "text/html,application/json",
 					},
 					body: JSON.stringify({
 						url: target.toString(),
-						zone: "web_unlocker",
+						zone: config.zone,
 						format: "raw",
 					}),
 					signal: AbortSignal.timeout(COMPANY_RESEARCH.request.timeoutMs),
@@ -178,11 +202,15 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 
 	private async officialUrl(domain: string): Promise<string | null> {
 		const direct = `https://${domain}`;
-		if (
-			await resolvesToPublicHost(domain, COMPANY_RESEARCH.request.timeoutMs)
-		) {
-			return direct;
-		}
+		return (await resolvesToPublicHost(
+			domain,
+			COMPANY_RESEARCH.request.timeoutMs,
+		))
+			? direct
+			: null;
+	}
+
+	private async discoverOfficialUrl(domain: string): Promise<string | null> {
 		const endpoint = process.env.BRIGHT_DATA_SERP_URL?.trim();
 		const token = process.env.BRIGHT_DATA_SERP_API_KEY?.trim();
 		if (!endpoint || !token) return null;
@@ -234,20 +262,23 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 		return null;
 	}
 
-	private unlockerUrl(): string | null {
-		return (
-			process.env.BRIGHT_DATA_WEB_UNLOCKER_URL?.trim() ||
-			process.env.BRIGHT_DATA_ISP_URL?.trim() ||
-			null
-		);
-	}
+	private pageConfig(): BrightDataPageConfig | null {
+		const webUnlockerEndpoint =
+			process.env.BRIGHT_DATA_WEB_UNLOCKER_URL?.trim();
+		const webUnlockerToken =
+			process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY?.trim();
+		if (webUnlockerEndpoint && webUnlockerToken)
+			return {
+				endpoint: webUnlockerEndpoint,
+				token: webUnlockerToken,
+				zone: "web_unlocker",
+			};
 
-	private unlockerToken(): string | null {
-		return (
-			process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY?.trim() ||
-			process.env.BRIGHT_DATA_ISP_API_KEY?.trim() ||
-			null
-		);
+		const ispEndpoint = process.env.BRIGHT_DATA_ISP_URL?.trim();
+		const ispToken = process.env.BRIGHT_DATA_ISP_API_KEY?.trim();
+		return ispEndpoint && ispToken
+			? { endpoint: ispEndpoint, token: ispToken, zone: "isp" }
+			: null;
 	}
 }
 
@@ -321,6 +352,24 @@ export function brandFromPage(
 	const description =
 		content("description", page) ?? content("og:description", page);
 	const logo = content("og:image", page);
+	const icon =
+		/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]+href=["']([^"']+)/i.exec(
+			page,
+		)?.[1];
+	const colors = [...page.matchAll(/#[0-9a-f]{6}\b/gi)]
+		.slice(0, 3)
+		.map((match) => ({ hex: match[0].toUpperCase() }));
+	const city = /["']addressLocality["']\s*[:=]\s*["']([^"']+)/i.exec(page)?.[1];
+	const stateCode = /["']addressRegion["']\s*[:=]\s*["']([^"']+)/i.exec(
+		page,
+	)?.[1];
+	const country = /["']addressCountry["']\s*[:=]\s*["']([^"']+)/i.exec(
+		page,
+	)?.[1];
+	const countryCode = country?.length === 2 ? country.toUpperCase() : null;
+	const industry =
+		content("industry", page) ?? content("article:section", page);
+	const subindustry = content("subindustry", page);
 	const email =
 		/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(page)?.[0] ?? null;
 	const phone = /\+?[0-9][0-9(). -]{6,}[0-9]/.exec(page)?.[0] ?? null;
@@ -339,16 +388,33 @@ export function brandFromPage(
 		description,
 		email,
 		phone,
-		logos: absoluteUrl(logo ?? "", url)
-			? [
-				{
-					url: absoluteUrl(logo ?? "", url),
-					type: "logo",
-					mode: "light",
-				},
-			]
-			: [],
+		colors,
+		logos: [
+			...(absoluteUrl(logo ?? "", url)
+				? [
+						{
+							url: absoluteUrl(logo ?? "", url),
+							type: "logo",
+							mode: "light",
+						},
+					]
+				: []),
+			...(absoluteUrl(icon ?? "", url)
+				? [
+						{
+							url: absoluteUrl(icon ?? "", url),
+							type: "icon",
+							mode: "light",
+						},
+					]
+				: []),
+		],
 		socials,
+		address:
+			city || stateCode || country
+				? { city, state_code: stateCode, country, country_code: countryCode }
+				: null,
+		industries: industry ? { eic: [{ industry, subindustry }] } : null,
 		links: {
 			pricing: link(page, "pricing", url),
 			careers: link(page, "careers|jobs", url),

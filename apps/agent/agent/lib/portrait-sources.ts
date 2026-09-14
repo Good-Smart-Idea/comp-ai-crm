@@ -1,6 +1,5 @@
 import { companyResearch } from "./company-research";
 import { namesMatch } from "./names";
-import { personByProfileUrl, slugFromProfileUrl } from "./people";
 
 export type PortraitSource = "linkedin" | "github" | "employer-site";
 
@@ -27,33 +26,6 @@ export async function findPortrait(
 	| { found: false; tried: string[]; reason?: string }
 > {
 	const tried: string[] = [];
-
-	if (subject.linkedinUrl && !researchReady) {
-		tried.push("The managed company research connector does not read LinkedIn");
-	}
-
-	if (subject.linkedinUrl && researchReady) {
-		const slug = slugFromProfileUrl(subject.linkedinUrl);
-		if (slug) {
-			const charge = spend(2);
-			if (!charge.ok) return { found: false, tried, reason: charge.reason };
-
-			const result = await personByProfileUrl(
-				`https://www.linkedin.com/in/${slug}`,
-			);
-			if (result.outcome === "found" && result.person.photoUrl) {
-				return {
-					found: true,
-					candidate: { source: "linkedin", url: result.person.photoUrl },
-				};
-			}
-			tried.push(
-				result.outcome === "found"
-					? "LinkedIn profile has no picture"
-					: "LinkedIn profile could not be read",
-			);
-		}
-	}
 
 	const login = githubLogin(subject.githubUrl);
 	if (login) {

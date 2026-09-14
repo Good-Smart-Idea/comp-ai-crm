@@ -78,7 +78,7 @@ export class SettingsService {
 		return {
 			configured,
 			provider: "Bright Data",
-			status: configured ? "available" : "unavailable",
+			status: configured ? "configured" : "unavailable",
 		};
 	}
 

@@ -34,7 +34,7 @@ candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
 candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate_id")
 [[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
 
-export IMAGE=$live_image
+export IMAGE=$candidate_image
 deploy_started=false
 rollback() {
 	local status=$?
@@ -42,6 +42,7 @@ rollback() {
 	if [[ $deploy_started == true ]]; then
 		printf '%s\n' "Deployment smoke test failed. Restoring the previous image." >&2
 		docker image tag "$previous_id" "$live_image"
+		export IMAGE=$live_image
 		(
 			cd "$app_dir"
 			docker compose -f ops/ada/compose.yml up -d --no-build --no-deps --force-recreate app api agent
@@ -51,7 +52,6 @@ rollback() {
 }
 trap rollback ERR
 
-docker image tag "$candidate_id" "$live_image"
 deploy_started=true
 cd "$app_dir"
 docker compose -f ops/ada/compose.yml up -d --no-build --no-deps --force-recreate app api agent

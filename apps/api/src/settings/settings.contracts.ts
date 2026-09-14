@@ -35,7 +35,7 @@ export type ModelCatalogResult = z.infer<typeof modelCatalogOutput>;
 export const companyResearchProviderOutput = z.object({
 	configured: z.boolean(),
 	provider: z.string(),
-	status: z.enum(["available", "unavailable"]),
+	status: z.enum(["configured", "unavailable"]),
 });
 
 export type CompanyResearchProviderSettings = z.infer<
