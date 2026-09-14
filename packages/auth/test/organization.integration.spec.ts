@@ -76,6 +76,37 @@ describe("ensureWorkspaceMembership", () => {
 		expect(await roleOf(secondId)).toBe("member");
 	});
 
+	it("keeps the first eligible account as owner when it is preauthorized", async () => {
+		await db.workspacePreauthorization.upsert({
+			where: {
+				organizationId_email: {
+					organizationId: WORKSPACE_ID,
+					email: emailOf("first"),
+				},
+			},
+			create: {
+				organizationId: WORKSPACE_ID,
+				email: emailOf("first"),
+				role: "member",
+			},
+			update: {},
+		});
+
+		await ensureWorkspaceMembership(firstId);
+
+		expect(await roleOf(firstId)).toBe("owner");
+		expect(
+			await db.workspacePreauthorization.findUnique({
+				where: {
+					organizationId_email: {
+						organizationId: WORKSPACE_ID,
+						email: emailOf("first"),
+					},
+				},
+			}),
+		).toBeNull();
+	});
+
 	it("is idempotent, so signing in again neither duplicates nor re-roles", async () => {
 		await ensureWorkspaceMembership(secondId);
 

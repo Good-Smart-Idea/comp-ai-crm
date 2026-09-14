@@ -109,11 +109,8 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 
 			const preauthorizations = await tx.workspacePreauthorization.findMany({
 				where: { organizationId: workspace.id },
-				select: { id: true, email: true, role: true },
+				select: { id: true, email: true },
 			});
-			const preauthorizedEmails = new Set(
-				preauthorizations.map((preauthorization) => preauthorization.email),
-			);
 
 			if (enrolled === 0) {
 				const existing = await tx.user.findMany({
@@ -130,13 +127,7 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 						id: crypto.randomUUID(),
 						organizationId: workspace.id,
 						userId: candidate.id,
-						role: preauthorizedEmails.has(
-							normalizeWorkspaceEmail(candidate.email) ?? "",
-						)
-							? "member"
-							: index === 0
-								? "owner"
-								: "member",
+						role: index === 0 ? "owner" : "member",
 						createdAt: new Date(),
 					})),
 					skipDuplicates: true,
