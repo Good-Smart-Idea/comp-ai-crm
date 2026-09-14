@@ -36,12 +36,17 @@ const catalogModel = z.object({
 });
 
 const catalogResponse = z.union([
-	z.object({ data: z.array(z.unknown()) }),
-	z.object({ models: z.array(z.unknown()) }),
-	z.array(z.unknown()),
+	z.object({ data: z.array(catalogModel) }),
+	z.object({ models: z.array(catalogModel) }),
+	z.array(catalogModel),
 ]);
 
-export function parseCatalog(value: unknown): CatalogModel[] | null {
+type CatalogPayload =
+	| z.input<typeof catalogModel>[]
+	| { data: z.input<typeof catalogModel>[] }
+	| { models: z.input<typeof catalogModel>[] };
+
+export function parseCatalog(value: CatalogPayload): CatalogModel[] | null {
 	const parsed = catalogResponse.safeParse(value);
 	if (!parsed.success) return null;
 	const entries = Array.isArray(parsed.data)
@@ -122,7 +127,8 @@ export class ModelCatalogService {
 				});
 				return null;
 			}
-			const models = parseCatalog(await response.json());
+			const payload = (await response.json()) as CatalogPayload;
+			const models = parseCatalog(payload);
 			if (!models) {
 				this.logger.warn({ message: "Model catalog response was invalid" });
 				return null;

@@ -1,4 +1,5 @@
 import { safeFetch } from "@crm/db/safe-fetch";
+import { z } from "zod";
 
 const SECOND_MS = 1_000;
 
@@ -53,8 +54,18 @@ export type ResearchBrief = {
 	contacts: { email: string | null; phone: string | null };
 };
 
+type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
+type JsonObject = { [key: string]: JsonValue };
+
 export type LookupResult =
-	| { outcome: "found"; brand: Brand; raw: Record<string, unknown> }
+	| { outcome: "found"; brand: Brand; raw: JsonObject }
 	| { outcome: "skipped"; reason: string }
 	| { outcome: "failed"; reason: string; retryable: boolean };
 
@@ -63,7 +74,7 @@ export type PageResult =
 			outcome: "found";
 			brief: ResearchBrief;
 			document: string;
-			raw: Record<string, unknown>;
+			raw: JsonObject;
 	  }
 	| { outcome: "failed"; reason: string };
 
@@ -80,7 +91,23 @@ export interface CompanyResearchProvider {
 	}): Promise<string | null>;
 }
 
-type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
+const searchResponse = z
+	.object({
+		organic: z
+			.array(z.object({ link: z.string().optional() }).passthrough())
+			.optional(),
+		results: z
+			.array(z.object({ url: z.string().optional() }).passthrough())
+			.optional(),
+	})
+	.passthrough();
+
+type BrightDataRequestInit = Omit<RequestInit, "body" | "method"> & {
+	method: "POST";
+	body: string;
+};
+
+type Fetcher = (url: string, init: BrightDataRequestInit) => Promise<Response>;
 type BrightDataConfig = {
 	token: string;
 	unlockerZone: string;
@@ -102,9 +129,10 @@ async function withPermit<T>(run: () => Promise<T>): Promise<T> {
 	}
 }
 
-async function secureFetch(url: string, init: RequestInit): Promise<Response> {
-	if (init.method !== "POST" || typeof init.body !== "string")
-		throw new Error("Unsupported Bright Data request.");
+async function secureFetch(
+	url: string,
+	init: BrightDataRequestInit,
+): Promise<Response> {
 	const result = await safeFetch(url, {
 		method: "POST",
 		timeoutMs: COMPANY_RESEARCH.request.timeoutMs,
@@ -334,16 +362,13 @@ function safeTarget(value: string): URL | null {
 	}
 }
 
-function searchCandidates(value: unknown): string[] {
-	if (!value || typeof value !== "object") return [];
-	const record = value as {
-		organic?: { link?: unknown }[];
-		results?: { url?: unknown }[];
-	};
+function searchCandidates(value: JsonValue): string[] {
+	const parsed = searchResponse.safeParse(value);
+	if (!parsed.success) return [];
 	return [
-		...(record.organic ?? []).map((row) => row.link),
-		...(record.results ?? []).map((row) => row.url),
-	].flatMap((url) => (typeof url === "string" ? [url] : []));
+		...(parsed.data.organic ?? []).flatMap((row) => row.link ?? []),
+		...(parsed.data.results ?? []).flatMap((row) => row.url ?? []),
+	];
 }
 
 export async function limitedText(
