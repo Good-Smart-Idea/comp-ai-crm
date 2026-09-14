@@ -136,28 +136,32 @@ export class EnvironmentVariables {
 	GSI_MODEL_CATALOG_URL?: string;
 
 	@IsOptional()
-	@IsUrl({ require_tld: false, require_protocol: true })
-	BRIGHT_DATA_WEB_UNLOCKER_URL?: string;
+	@IsString()
+	BRIGHTDATA_API_TOKEN?: string;
 
 	@IsOptional()
 	@IsString()
-	BRIGHT_DATA_WEB_UNLOCKER_API_KEY?: string;
-
-	@IsOptional()
-	@IsUrl({ require_tld: false, require_protocol: true })
-	BRIGHT_DATA_ISP_URL?: string;
+	BRIGHTDATA_UNLOCKER_USER?: string;
 
 	@IsOptional()
 	@IsString()
-	BRIGHT_DATA_ISP_API_KEY?: string;
-
-	@IsOptional()
-	@IsUrl({ require_tld: false, require_protocol: true })
-	BRIGHT_DATA_SERP_URL?: string;
+	BRIGHTDATA_UNLOCKER_PASS?: string;
 
 	@IsOptional()
 	@IsString()
-	BRIGHT_DATA_SERP_API_KEY?: string;
+	BRIGHTDATA_UNLOCKER_ZONE?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_SERP_USER?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_SERP_PASS?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_SERP_ZONE?: string;
 
 	@IsOptional()
 	@IsString()

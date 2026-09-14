@@ -1,8 +1,10 @@
 import dns from "node:dns/promises";
+import http from "node:http";
+import https from "node:https";
 import net from "node:net";
+import { Readable } from "node:stream";
 
 const MAX_REDIRECTS = 3;
-
 const DEFAULT_TIMEOUT_MS = 5_000;
 
 export function isBlockedAddress(ip: string): boolean {
@@ -20,9 +22,11 @@ export function isBlockedAddress(ip: string): boolean {
 
 		const first = groups[0] ?? 0;
 		return (
-			(first & 0xfe00) === 0xfc00 ||
-			(first & 0xffc0) === 0xfe80 ||
-			(first & 0xff00) === 0xff00
+			groups.every((group) => group === 0) ||
+		(groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) ||
+		(first & 0xfe00) === 0xfc00 ||
+		(first & 0xffc0) === 0xfe80 ||
+		(first & 0xff00) === 0xff00
 		);
 	}
 
@@ -50,7 +54,6 @@ function isBlockedIPv4(a: number, b: number): boolean {
 
 function expandIPv6(ip: string): number[] | null {
 	let text = (ip.split("%")[0] ?? "").toLowerCase();
-
 	const embedded: number[] = [];
 	const lastColon = text.lastIndexOf(":");
 	const tail = text.slice(lastColon + 1);
@@ -63,7 +66,6 @@ function expandIPv6(ip: string): number[] | null {
 
 	const [headText = "", runText, extra] = text.split("::");
 	if (extra !== undefined) return null;
-
 	const parse = (part: string) =>
 		part
 			.split(":")
@@ -71,26 +73,22 @@ function expandIPv6(ip: string): number[] | null {
 			.map((group) =>
 				/^[0-9a-f]{1,4}$/.test(group) ? Number.parseInt(group, 16) : Number.NaN,
 			);
-
 	const head = parse(headText);
 	const run = runText === undefined ? [] : parse(runText);
 	const missing = 8 - head.length - run.length - embedded.length;
 	if (runText !== undefined && missing < 0) return null;
-
 	const fill = runText === undefined ? [] : Array<number>(missing).fill(0);
 	const groups = [...head, ...fill, ...run, ...embedded];
-	if (groups.length !== 8 || groups.some((group) => Number.isNaN(group)))
-		return null;
-
-	return groups;
+	return groups.length === 8 && !groups.some(Number.isNaN) ? groups : null;
 }
 
-export async function resolvesToPublicHost(
+async function publicAddresses(
 	hostname: string,
-	timeoutMs: number = DEFAULT_TIMEOUT_MS,
-): Promise<boolean> {
+	timeoutMs: number,
+): Promise<dns.LookupAddress[]> {
 	const literal = hostname.replace(/^\[|\]$/g, "");
-	if (net.isIP(literal)) return !isBlockedAddress(literal);
+	if (net.isIP(literal))
+		return isBlockedAddress(literal) ? [] : [{ address: literal, family: net.isIP(literal) }];
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
@@ -103,16 +101,21 @@ export async function resolvesToPublicHost(
 				);
 			}),
 		]);
-
-		return (
-			addresses.length > 0 &&
-			addresses.every((address) => !isBlockedAddress(address.address))
-		);
+		return addresses.length > 0 && addresses.every((address) => !isBlockedAddress(address.address))
+			? addresses
+			: [];
 	} catch {
-		return false;
+		return [];
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+export async function resolvesToPublicHost(
+	hostname: string,
+	timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<boolean> {
+	return (await publicAddresses(hostname, timeoutMs)).length > 0;
 }
 
 export async function safeFetch(
@@ -121,10 +124,12 @@ export async function safeFetch(
 		method = "GET",
 		timeoutMs = DEFAULT_TIMEOUT_MS,
 		headers,
+		body,
 	}: {
-		method?: "GET" | "HEAD";
+		method?: "GET" | "HEAD" | "POST";
 		timeoutMs?: number;
 		headers?: Record<string, string>;
+		body?: string;
 	} = {},
 ): Promise<{ response: Response; url: URL } | null> {
 	let target: URL;
@@ -135,25 +140,22 @@ export async function safeFetch(
 	}
 
 	for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-		if (target.protocol !== "https:" && target.protocol !== "http:")
+		if (
+			(target.protocol !== "https:" && target.protocol !== "http:") ||
+			target.username ||
+			target.password ||
+			(target.port && target.port !== "80" && target.port !== "443")
+		)
 			return null;
-		if (!(await resolvesToPublicHost(target.hostname, timeoutMs))) return null;
-
-		let response: Response;
-		try {
-			response = await fetch(target, {
-				method,
-				signal: AbortSignal.timeout(timeoutMs),
-				redirect: "manual",
-				headers: {
-					"user-agent": "Mozilla/5.0 (compatible; CRM/1.0)",
-					...headers,
-				},
-			});
-		} catch {
-			return null;
-		}
-
+		const addresses = await publicAddresses(target.hostname, timeoutMs);
+		if (addresses.length === 0) return null;
+		const response = await pinnedFetch(target, addresses[0]!, {
+			method,
+			timeoutMs,
+			headers,
+			body,
+		});
+		if (!response) return null;
 		const location = response.headers.get("location");
 		if (response.status >= 300 && response.status < 400 && location) {
 			await response.body?.cancel();
@@ -164,9 +166,53 @@ export async function safeFetch(
 			}
 			continue;
 		}
-
 		return { response, url: target };
 	}
-
 	return null;
+}
+
+function pinnedFetch(
+	target: URL,
+	address: dns.LookupAddress,
+	input: {
+		method: "GET" | "HEAD" | "POST";
+		timeoutMs: number;
+		headers?: Record<string, string>;
+		body?: string;
+	},
+): Promise<Response | null> {
+	return new Promise((resolve) => {
+		const secure = target.protocol === "https:";
+		const request = (secure ? https : http).request(
+			{
+				hostname: address.address,
+				port: Number(target.port || (secure ? 443 : 80)),
+				path: `${target.pathname}${target.search}`,
+				method: input.method,
+				family: address.family,
+				servername: secure ? target.hostname : undefined,
+				headers: {
+					host: target.host,
+					"user-agent": "Mozilla/5.0 (compatible; CRM/1.0)",
+					...input.headers,
+				},
+			},
+			(response) => {
+				const headers = new Headers();
+				for (const [name, value] of Object.entries(response.headers)) {
+					if (value !== undefined)
+						headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+				}
+				resolve(
+					new Response(Readable.toWeb(response) as ReadableStream, {
+						status: response.statusCode ?? 502,
+						headers,
+					}),
+				);
+			},
+		);
+		request.setTimeout(input.timeoutMs, () => request.destroy());
+		request.once("error", () => resolve(null));
+		request.end(input.body);
+	});
 }

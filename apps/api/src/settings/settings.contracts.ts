@@ -27,6 +27,7 @@ export type AgentModelSettings = z.infer<typeof agentModelOutput>;
 
 export const modelCatalogOutput = z.object({
 	models: z.array(catalogModelOutput),
+	configured: z.boolean(),
 	available: z.boolean(),
 });
 
@@ -34,6 +35,7 @@ export type ModelCatalogResult = z.infer<typeof modelCatalogOutput>;
 
 export const companyResearchProviderOutput = z.object({
 	configured: z.boolean(),
+	probed: z.boolean(),
 	provider: z.string(),
 	status: z.enum(["configured", "unavailable"]),
 });

@@ -48,7 +48,7 @@ export default defineTool({
 			data: {
 				type: ActivityType.ENRICHMENT,
 				subject: `Research brief — ${company.name}`,
-				body: result.text.slice(0, 20_000),
+				body: formatBrief(result.brief),
 				occurredAt: new Date(),
 				companyId: company.id,
 				createdById: author,
@@ -56,7 +56,7 @@ export default defineTool({
 					source: "bright-data",
 					endpoint: "company-page",
 					agent: "people-research",
-					evidence: JSON.stringify(result.raw),
+					evidence: result.raw,
 				},
 			},
 			select: { id: true },
@@ -68,3 +68,20 @@ export default defineTool({
 		return { written: true as const, activityId: activity.id };
 	},
 });
+
+function formatBrief(brief: {
+	title: string | null;
+	description: string | null;
+	headings: string[];
+	contacts: { email: string | null; phone: string | null };
+}): string {
+	return [
+		brief.title,
+		brief.description,
+		brief.headings.length > 0 ? `Sections: ${brief.headings.join("; ")}` : null,
+		brief.contacts.email ? `Email: ${brief.contacts.email}` : null,
+		brief.contacts.phone ? `Phone: ${brief.contacts.phone}` : null,
+	]
+		.filter((line): line is string => Boolean(line))
+		.join("\n");
+}

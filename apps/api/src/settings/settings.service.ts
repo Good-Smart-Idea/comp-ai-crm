@@ -28,7 +28,7 @@ export class SettingsService {
 	async agentModel(): Promise<AgentModelSettings> {
 		const [model, row] = await Promise.all([
 			readAgentModel(this.db),
-			this.db.appSetting.findFirst({ select: { updatedAt: true } }),
+			this.db.workspaceAgentModel.findFirst({ select: { updatedAt: true } }),
 		]);
 		return {
 			selectedId: model.isDefault ? null : model.id,
@@ -65,18 +65,26 @@ export class SettingsService {
 
 	async modelCatalog(): Promise<ModelCatalogResult> {
 		const models = await this.catalog.models();
-		return { models: models ?? [], available: models !== null };
+		return {
+			models: models ?? [],
+			configured: this.catalog.configured(),
+			available: models !== null,
+		};
 	}
 
 	companyResearchProvider(): CompanyResearchProviderSettings {
-		const configured = Boolean(
-			(process.env.BRIGHT_DATA_WEB_UNLOCKER_URL?.trim() ||
-				process.env.BRIGHT_DATA_ISP_URL?.trim()) &&
-				(process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY?.trim() ||
-					process.env.BRIGHT_DATA_ISP_API_KEY?.trim()),
-		);
+		const configured = [
+			"BRIGHTDATA_API_TOKEN",
+			"BRIGHTDATA_UNLOCKER_USER",
+			"BRIGHTDATA_UNLOCKER_PASS",
+			"BRIGHTDATA_UNLOCKER_ZONE",
+			"BRIGHTDATA_SERP_USER",
+			"BRIGHTDATA_SERP_PASS",
+			"BRIGHTDATA_SERP_ZONE",
+		].every((name) => Boolean(process.env[name]?.trim()));
 		return {
 			configured,
+			probed: false,
 			provider: "Bright Data",
 			status: configured ? "configured" : "unavailable",
 		};

@@ -1484,9 +1484,21 @@ model Organization {
   website     String?
   members     Member[]
   invitations Invitation[]
+  agentModel  WorkspaceAgentModel?
 
   @@unique([slug])
   @@map("organization")
+}
+
+model WorkspaceAgentModel {
+  workspaceId String @id
+  workspace   Organization @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  modelId            String?
+  modelContextWindow Int?
+  updatedAt          DateTime @updatedAt
+
+  @@map("workspaceAgentModel")
 }
 
 model WorkspaceProfile {

@@ -114,8 +114,7 @@ single place that knows what is set.
 | `PERPLEXITY_API_KEY` | Open-web research with citations; finds a LinkedIn slug |
 | `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
-| `BRIGHT_DATA_WEB_UNLOCKER_URL` + `BRIGHT_DATA_WEB_UNLOCKER_API_KEY` | Managed official company page research |
-| `BRIGHT_DATA_SERP_URL` + `BRIGHT_DATA_SERP_API_KEY` | Managed official company page discovery |
+| `BRIGHTDATA_API_TOKEN`, `BRIGHTDATA_UNLOCKER_USER/PASS/ZONE`, and `BRIGHTDATA_SERP_USER/PASS/ZONE` | Managed company and LinkedIn research |
 | `GSI_MODEL_GATEWAY_BASE_URL` + `GSI_MODEL_GATEWAY_API_KEY` | Managed OpenAI-compatible model gateway |
 | `GSI_MODEL_CATALOG_URL` | Governed model catalog with source and cost metadata |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
@@ -127,12 +126,13 @@ excluded — recognising our URL for the image optimizer needs no token.
 ### Managed company research
 
 Ada injects Bright Data credentials into the API and agent processes. The browser has no
-credential field. Settings shows only managed connector status. Missing credentials leave
-company research unavailable and do not block CRM use.
+credential field. Settings reports configured state without a paid scrape. Missing credentials
+leave company and LinkedIn research unavailable and do not block CRM use.
 
-The agent reads official pages with Web Unlocker or ISP. SERP discovers official pages.
-It rejects private addresses, unsafe redirects, and DNS rebinding. It bounds pages, bytes,
-retries, timeouts, and concurrent work.
+The agent uses Bright Data `/request` Bearer authentication with configurable zones. SERP
+uses a full search-engine URL with `brd_json=1`. The agent rejects private addresses,
+userinfo, unsafe redirects, and DNS rebinding. It bounds pages, bytes, retries, timeouts,
+concurrent work, and each research job.
 
 ### Managed model routing
 

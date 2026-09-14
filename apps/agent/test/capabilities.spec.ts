@@ -10,10 +10,19 @@ import {
 const KEYS = [
 	"PERPLEXITY_API_KEY",
 	"BLOB_READ_WRITE_TOKEN",
-	"BRIGHT_DATA_WEB_UNLOCKER_URL",
-	"BRIGHT_DATA_WEB_UNLOCKER_API_KEY",
+	"BRIGHTDATA_API_TOKEN",
+	"BRIGHTDATA_UNLOCKER_USER",
+	"BRIGHTDATA_UNLOCKER_PASS",
+	"BRIGHTDATA_UNLOCKER_ZONE",
+	"BRIGHTDATA_SERP_USER",
+	"BRIGHTDATA_SERP_PASS",
+	"BRIGHTDATA_SERP_ZONE",
 ] as const;
 const saved: Record<string, string | undefined> = {};
+
+function configure() {
+	for (const key of KEYS.slice(2)) process.env[key] = "test";
+}
 
 beforeEach(() => {
 	for (const key of KEYS) {
@@ -31,21 +40,12 @@ afterEach(() => {
 
 describe("managed capabilities", () => {
 	it("keeps company research unavailable without managed credentials", () => {
-		expect(
-			capabilitiesFrom().find(
-				(capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH,
-			)?.enabled,
-		).toBe(false);
+		expect(capabilitiesFrom().find((capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH)?.enabled).toBe(false);
 	});
 
-	it("enables Bright Data only when its endpoint and credential exist", () => {
-		process.env.BRIGHT_DATA_WEB_UNLOCKER_URL = "https://bright.example/request";
-		process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY = "test";
-		expect(
-			capabilitiesFrom().find(
-				(capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH,
-			)?.enabled,
-		).toBe(true);
+	it("enables Bright Data only when its managed credentials are complete", () => {
+		configure();
+		expect(capabilitiesFrom().find((capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH)?.enabled).toBe(true);
 	});
 
 	it("does not turn an unrelated variable into a capability", async () => {
@@ -55,16 +55,13 @@ describe("managed capabilities", () => {
 	});
 
 	it("states that an unavailable provider must not be retried", () => {
-		expect(unavailable("Bright Data").reason).toContain(
-			"retrying will not help",
-		);
+		expect(unavailable("Bright Data").reason).toContain("retrying will not help");
 	});
 
 	it("does not expose managed credentials in the capability briefing", () => {
-		process.env.BRIGHT_DATA_WEB_UNLOCKER_URL = "https://bright.example/request";
-		process.env.BRIGHT_DATA_WEB_UNLOCKER_API_KEY = "secret";
+		configure();
 		const briefing = markdownFor(capabilitiesFrom());
 		expect(briefing).toContain("Company research");
-		expect(briefing).not.toContain("secret");
+		expect(briefing).not.toContain("test");
 	});
 });

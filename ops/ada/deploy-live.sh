@@ -3,8 +3,10 @@ set -Eeuo pipefail
 
 live_host=gsi-fsn1-ada
 app_dir=/opt/gsi/apps/compcrm
+compose_file=$app_dir/ops/ada/compose.yml
 env_file=$app_dir/.env
-live_image=gsi/compcrm:v1.15.3-local
+live_image=gsi/compcrm:live
+lock_file=/run/lock/gsi-deploy-compcrm.lock
 
 fail() {
 	printf '%s\n' "$1" >&2
@@ -17,24 +19,24 @@ fail() {
 [[ -f $env_file ]] || fail "$env_file does not exist."
 [[ $(stat -c '%a' "$env_file") == 600 ]] || fail "$env_file must have mode 600."
 [[ $(stat -c '%U:%G' "$env_file") == root:root ]] || fail "$env_file must be owned by root:root."
+[[ -f $compose_file ]] || fail "$compose_file does not exist."
+
+exec 9>"$lock_file"
+flock -n 9 || fail "A Comp CRM deployment is already running."
 
 sha=${1,,}
-[[ $(git -C "$app_dir" rev-parse HEAD) == "$sha" ]] || fail "The application source does not match $sha."
 candidate_image=gsi/compcrm:$sha
+docker image inspect "$candidate_image" >/dev/null || fail "Candidate image $candidate_image does not exist."
+candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
+candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate_image")
+[[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
 previous_id=$(docker image inspect --format '{{.Id}}' "$live_image") || fail "Live image $live_image does not exist."
 
-docker build \
-	--file "$app_dir/ops/ada/Dockerfile" \
-	--build-arg API_URL="$(grep -m1 '^API_URL=' "$env_file" | cut -d= -f2-)" \
-	--build-arg APP_URL="$(grep -m1 '^APP_URL=' "$env_file" | cut -d= -f2-)" \
-	--build-arg REVISION="$sha" \
-	--tag "$candidate_image" \
-	"$app_dir"
-candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
-candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate_id")
-[[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
-
 export IMAGE=$candidate_image
+cd "$app_dir"
+docker compose -f "$compose_file" config -q
+docker compose -f "$compose_file" run --rm --no-deps api bun run db:deploy
+
 deploy_started=false
 rollback() {
 	local status=$?
@@ -43,33 +45,32 @@ rollback() {
 		printf '%s\n' "Deployment smoke test failed. Restoring the previous image." >&2
 		docker image tag "$previous_id" "$live_image"
 		export IMAGE=$live_image
-		(
-			cd "$app_dir"
-			docker compose -f ops/ada/compose.yml up -d --no-build --no-deps --force-recreate app api agent
-		)
+		docker compose -f "$compose_file" up -d --no-build --force-recreate agent api app
 	fi
 	exit "$status"
 }
 trap rollback ERR
 
 deploy_started=true
-cd "$app_dir"
-docker compose -f ops/ada/compose.yml up -d --no-build --no-deps --force-recreate app api agent
+docker compose -f "$compose_file" up -d --no-build --force-recreate agent api app
 
-for service in app api agent; do
-	container_id=$(docker compose -f ops/ada/compose.yml ps -q "$service")
+for service in agent api app; do
+	container_id=$(docker compose -f "$compose_file" ps -q "$service")
 	[[ -n $container_id ]]
-	[[ $(docker inspect --format '{{.State.Running}}' "$container_id") == true ]]
+	for _ in $(seq 1 24); do
+		status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")
+		[[ $status == healthy ]] && break
+		[[ $status != unhealthy ]] || fail "$service health check failed."
+		sleep 5
+	done
+	[[ $status == healthy ]] || fail "$service did not become healthy."
 	[[ $(docker inspect --format '{{.Image}}' "$container_id") == "$candidate_id" ]]
 done
 
-sign_in_page=$(curl --fail --silent --show-error --max-time 20 \
-	--retry 12 --retry-all-errors --retry-delay 5 \
-	--header 'Host: compcrm.carvisgsi.xyz' \
-	http://127.0.0.1:3000/sign-in)
+sign_in_page=$(curl --fail --silent --show-error --max-time 20 --retry 12 --retry-all-errors --retry-delay 5 --header 'Host: compcrm.carvisgsi.xyz' http://127.0.0.1:8530/sign-in)
 grep --fixed-strings --quiet '<title>Sign in · Comp AI CRM</title>' <<<"$sign_in_page"
+docker compose -f "$compose_file" exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET" && wget -qO- --header="Authorization: Bearer $AGENT_BRIDGE_SECRET" http://agent:2000/eve/v1/info >/dev/null'
 
-docker compose -f ops/ada/compose.yml exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET" && wget -qO- --header="Authorization: Bearer $AGENT_BRIDGE_SECRET" http://agent:2000/eve/v1/info >/dev/null'
-
+docker image tag "$candidate_id" "$live_image"
 trap - ERR
 printf '%s\n' "Deployed $sha."

@@ -46,6 +46,13 @@ export function capabilitiesFrom(): readonly Capability[] {
 			enabled: companyResearch.available(),
 		},
 		{
+			id: MANAGED_PERSON_RESEARCH,
+			from: "Ada managed connector",
+			label: "Person research",
+			gives: "LinkedIn profiles and work history tied to CRM identity details",
+			enabled: companyResearch.available(),
+		},
+		{
 			...fromEnv("BLOB_READ_WRITE_TOKEN"),
 			label: "Picture storage",
 			gives:
