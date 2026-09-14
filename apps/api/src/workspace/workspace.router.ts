@@ -25,9 +25,7 @@ import {
 } from "./workspace.contracts";
 import { WorkspaceService } from "./workspace.service";
 
-export function assertWorkspaceMutationOrigin(
-	origin: string | undefined,
-): void {
+function assertWorkspaceMutationOrigin(origin: string | undefined): void {
 	const parsed = z.string().safeParse(origin);
 	if (!parsed.success || !isTrustedOrigin(parsed.data)) {
 		throw new ForbiddenException("The request origin is not trusted.");
