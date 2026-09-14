@@ -7,6 +7,8 @@ import { Readable } from "node:stream";
 const MAX_REDIRECTS = 3;
 const DEFAULT_TIMEOUT_MS = 5_000;
 
+type LookupAddress = { address: string; family: number };
+
 export function isBlockedAddress(ip: string): boolean {
 	const groups = ip.includes(":") ? expandIPv6(ip) : null;
 
@@ -85,7 +87,7 @@ function expandIPv6(ip: string): number[] | null {
 async function publicAddresses(
 	hostname: string,
 	timeoutMs: number,
-): Promise<dns.LookupAddress[]> {
+): Promise<LookupAddress[]> {
 	const literal = hostname.replace(/^\[|\]$/g, "");
 	if (net.isIP(literal))
 		return isBlockedAddress(literal) ? [] : [{ address: literal, family: net.isIP(literal) }];
@@ -173,7 +175,7 @@ export async function safeFetch(
 
 function pinnedFetch(
 	target: URL,
-	address: dns.LookupAddress,
+	address: LookupAddress,
 	input: {
 		method: "GET" | "HEAD" | "POST";
 		timeoutMs: number;
