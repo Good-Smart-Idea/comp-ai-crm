@@ -130,8 +130,8 @@ General — an admin who cannot redeploy cannot set a variable.
 - **It buys two places to look, not one.** Company brand data by domain, and a person
   read back from a LinkedIn URL already on their record. Both capabilities in
   `agent/lib/capabilities.ts` turn on and off with this one key.
-- **An install that had the variable is asked again**: no migration, no fallback, and
-  **the gate cannot be dismissed**.
+- **The connector is optional.** Onboarding links to its setup page, which offers
+  Skip for now. Settings → General keeps it available later.
 - **Nothing is lost while waiting.** A keyless `brand` task settles `SKIPPED` *before*
   anything marks the row `RUNNING`, and `settle` only overwrites `RUNNING` — so the
   company stays `PENDING`, which the sweep re-queues

@@ -67,20 +67,19 @@ here, what do we sell.
 
 ### Gates in `proxy.ts`
 
-Onboarding, then `/onboarding/research` for the Context key. Asked server-side every
-request.
+Onboarding is the only setup gate. The Context connector is optional and never runs
+from `proxy.ts`.
 
 - **`getSessionCookie()` decides signed-in**; pages still resolve the real session via
   `requireMailboxAccess()`.
-- **Nothing is cached in a cookie** — both facts revert on a database reset while a
-  year-long marker insists the gate passed. Cache in the API if cost ever matters.
-- **Both reads run concurrently**, but order decides which is *asked* — the research
-  read is never made while onboarding is open.
+- **Nothing is cached in a cookie** — workspace state reverts on a database reset.
+  Cache in the API if cost ever matters.
 - **An unreachable API fails open** (`unknown` lets the request through).
-- **`/sign-in`, `/grant-access`, `/eve` are ungated.** `/sign-in` is the only path a
-  stranger may read; `/` joins it only when `IS_MARKETING` is set.
-- **There is no way past the key gate but to answer** — Skip stranded installs, every
-  later company sitting `PENDING` with nothing saying so.
+- **`/sign-in`, `/grant-access`, and `/eve` are ungated.** `/sign-in` is the only
+  path a stranger may read; `/` joins it only when `IS_MARKETING` is set.
+- **`/onboarding/research` needs a session but does not gate completion.** It offers
+  Context setup and Skip for now. Settings keeps the connector available after
+  onboarding.
 
 ### The name is also the URL
 

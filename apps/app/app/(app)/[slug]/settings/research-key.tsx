@@ -1,6 +1,5 @@
 "use client";
 
-import { CONTEXT_DEV_SIGNUP_URL } from "@crm/db/settings";
 import { Button } from "@crm/ui/components/button";
 import {
 	Card,
@@ -25,7 +24,7 @@ import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
-export function ResearchKey() {
+export function ResearchKey({ signupUrl }: { signupUrl: string }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
@@ -52,10 +51,10 @@ export function ResearchKey() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Company research</CardTitle>
+				<CardTitle>Optional company enrichment</CardTitle>
 				<CardDescription>
-					Enter your Context API key so our agents can research every company in
-					the CRM.
+					Connect Context to let agents enrich companies. The CRM works without
+					this connector.
 				</CardDescription>
 
 				<CardAction>
@@ -103,7 +102,7 @@ export function ResearchKey() {
 							<FieldDescription>
 								Don't have a Context API key?{" "}
 								<a
-									href={CONTEXT_DEV_SIGNUP_URL}
+									href={signupUrl}
 									target="_blank"
 									rel="noreferrer"
 									className="underline underline-offset-4 hover:text-foreground"
