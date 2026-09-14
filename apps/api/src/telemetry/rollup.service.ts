@@ -134,14 +134,12 @@ export class RollupService {
 	}
 
 	private async shape(): Promise<Properties> {
-		const [model, members, ssoProviders, postgres, contextKey] =
-			await Promise.all([
-				readAgentModel(this.db).catch(() => null),
-				this.db.member.count({ where: { organizationId: WORKSPACE_ID } }),
-				this.db.ssoProvider.count(),
-				this.postgresMajor(),
-				this.db.appSetting.findFirst({ select: { contextDevApiKey: true } }),
-			]);
+		const [model, members, ssoProviders, postgres] = await Promise.all([
+			readAgentModel(this.db).catch(() => null),
+			this.db.member.count({ where: { organizationId: WORKSPACE_ID } }),
+			this.db.ssoProvider.count(),
+			this.postgresMajor(),
+		]);
 
 		return {
 			node_version: process.versions.node.split(".")[0] ?? null,
@@ -149,13 +147,13 @@ export class RollupService {
 			members_bucket: bucket(members),
 
 			cap_perplexity: isSet("PERPLEXITY_API_KEY"),
-			cap_context_dev: Boolean(contextKey?.contextDevApiKey?.trim()),
+			cap_bright_data: isSet("BRIGHT_DATA_WEB_UNLOCKER_API_KEY") || isSet("BRIGHT_DATA_ISP_API_KEY"),
 			cap_blob: isSet("BLOB_READ_WRITE_TOKEN"),
 			cap_github: isSet("GITHUB_TOKEN"),
 			cap_redis: isSet("REDIS_URL"),
 			cap_agent_bridge: isSet("AGENT_BRIDGE_SECRET"),
 			cap_cron_secret: isSet("CRON_SECRET"),
-			cap_ai_gateway: isSet("AI_GATEWAY_API_KEY"),
+			cap_gsi_model_gateway: isSet("GSI_MODEL_GATEWAY_API_KEY"),
 			cap_google_oauth:
 				isSet("GOOGLE_CLIENT_ID") && isSet("GOOGLE_CLIENT_SECRET"),
 			cap_sso_provider: ssoProviders > 0,

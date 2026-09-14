@@ -1,6 +1,4 @@
-import { z } from "zod";
-import { CONTEXT } from "./context-config";
-import { extract, type JsonSchema } from "./context-dev";
+import { companyResearch } from "./company-research";
 import { namesMatch } from "./names";
 import { personByProfileUrl, slugFromProfileUrl } from "./people";
 
@@ -23,21 +21,21 @@ export type PortraitSubject = {
 export async function findPortrait(
 	subject: PortraitSubject,
 	spend: (units?: number) => { ok: boolean; reason?: string },
-	contextReady = true,
+	researchReady = companyResearch.available(),
 ): Promise<
 	| { found: true; candidate: PortraitCandidate }
 	| { found: false; tried: string[]; reason?: string }
 > {
 	const tried: string[] = [];
 
-	if (subject.linkedinUrl && !contextReady) {
-		tried.push("Context.dev is not connected, so LinkedIn was not read");
+	if (subject.linkedinUrl && !researchReady) {
+		tried.push("The managed company research connector does not read LinkedIn");
 	}
 
-	if (subject.linkedinUrl && contextReady) {
+	if (subject.linkedinUrl && researchReady) {
 		const slug = slugFromProfileUrl(subject.linkedinUrl);
 		if (slug) {
-			const charge = spend(CONTEXT.people.enrichCost);
+			const charge = spend(2);
 			if (!charge.ok) return { found: false, tried, reason: charge.reason };
 
 			const result = await personByProfileUrl(
@@ -68,13 +66,11 @@ export async function findPortrait(
 		};
 	}
 
-	if (subject.companyDomain && subject.name && !contextReady) {
-		tried.push(
-			"Context.dev is not connected, so the company site was not read",
-		);
+	if (subject.companyDomain && subject.name && !researchReady) {
+		tried.push("Bright Data is not connected, so the company site was not read");
 	}
 
-	if (subject.companyDomain && subject.name && contextReady) {
+	if (subject.companyDomain && subject.name && researchReady) {
 		const charge = spend(2);
 		if (!charge.ok) return { found: false, tried, reason: charge.reason };
 
@@ -86,63 +82,19 @@ export async function findPortrait(
 	return { found: false, tried };
 }
 
-const TEAM_SCHEMA: JsonSchema = {
-	type: "object",
-	properties: {
-		people: {
-			type: "array",
-			items: {
-				type: "object",
-				properties: {
-					name: { type: "string" },
-					title: { type: "string" },
-					photoUrl: {
-						type: "string",
-						description: "Absolute URL of this person's headshot.",
-					},
-				},
-				required: ["name"],
-			},
-		},
-	},
-	required: ["people"],
-};
-
-const teamPage = z
-	.object({
-		people: z
-			.array(
-				z
-					.object({
-						name: z.string().nullable().catch(null),
-						photoUrl: z.string().nullable().catch(null),
-					})
-					.catch({ name: null, photoUrl: null }),
-			)
-			.catch([]),
-	})
-	.catch({ people: [] });
+const employeeImage = /<img[^>]+(?:alt=["']([^"']+)["'][^>]+src=["']([^"']+)["']|src=["']([^"']+)["'][^>]+alt=["']([^"']+)["'])/gi;
 
 async function fromEmployerSite(
 	subject: PortraitSubject,
 ): Promise<PortraitCandidate | null> {
-	const result = await extract(
-		`https://${subject.companyDomain}`,
-		TEAM_SCHEMA,
-		`Find the team, people, about or leadership page for ${subject.companyName ?? subject.companyDomain}. ` +
-			"List every named person shown with a headshot, giving the photograph's absolute URL. " +
-			"Do not include stock photography, customer logos, or people who are not staff.",
-	);
-
+	const result = await companyResearch.read(`https://${subject.companyDomain}`);
 	if (result.outcome !== "found") return null;
-
-	for (const person of teamPage.parse(result.data).people) {
-		const { name, photoUrl } = person;
-		if (!name || !photoUrl) continue;
-		if (!namesMatch(name, subject.name)) continue;
-
+	for (const match of result.text.matchAll(employeeImage)) {
+		const name = match[1] ?? match[4] ?? null;
+		const photoUrl = match[2] ?? match[3] ?? null;
+		if (!name || !photoUrl || !namesMatch(name, subject.name)) continue;
 		try {
-			const parsed = new URL(photoUrl);
+			const parsed = new URL(photoUrl, `https://${subject.companyDomain}`);
 			if (parsed.protocol !== "https:" && parsed.protocol !== "http:") continue;
 			return { source: "employer-site", url: parsed.toString() };
 		} catch {}

@@ -10,6 +10,7 @@ export const catalogModelOutput = z.object({
 	provider: z.string(),
 	contextWindowTokens: z.number(),
 	pricing: z.object({ input: z.number(), output: z.number() }).nullable(),
+	source: z.string().nullable(),
 });
 
 export type CatalogModel = z.infer<typeof catalogModelOutput>;
@@ -31,12 +32,15 @@ export const modelCatalogOutput = z.object({
 
 export type ModelCatalogResult = z.infer<typeof modelCatalogOutput>;
 
-export const researchKeyOutput = z.object({
+export const companyResearchProviderOutput = z.object({
 	configured: z.boolean(),
-	hint: z.string().nullable(),
+	provider: z.string(),
+	status: z.enum(["available", "unavailable"]),
 });
 
-export type ResearchKeySettings = z.infer<typeof researchKeyOutput>;
+export type CompanyResearchProviderSettings = z.infer<
+	typeof companyResearchProviderOutput
+>;
 
 export const archiveRetentionOutput = z.object({
 	days: z.number(),
@@ -50,19 +54,6 @@ export const setAgentModelInput = z.object({
 
 export type SetAgentModelInput = z.infer<typeof setAgentModelInput>;
 
-export const setResearchKeyInput = z.object({
-	apiKey: z
-		.string()
-		.trim()
-		.min(8, "That does not look like a Context API key — it is too short.")
-		.max(500, "That does not look like a Context API key — it is too long.")
-		.refine(
-			(value) => !/\s/.test(value),
-			"An API key has no spaces in it. Paste the whole key on its own.",
-		),
-});
-
-export type SetResearchKeyInput = z.infer<typeof setResearchKeyInput>;
 
 export const setArchiveRetentionDaysInput = z.object({
 	days: z

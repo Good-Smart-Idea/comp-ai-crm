@@ -1,7 +1,7 @@
 import { db, EnrichmentStatus } from "@crm/db";
 import { mirrorBrandImages } from "./brand-images";
 import { brandToUpdate, filledFields, stillFillable } from "./brand-mapping";
-import { brandByDomain, contextDevEnabled } from "./context-dev";
+import { companyResearch } from "./company-research";
 import { UNLESS_COMPLETE } from "./enrichment";
 
 export type BrandResult = {
@@ -58,9 +58,8 @@ export async function runBrand({
 
 	if (!company) return { enriched: false, reason: "No such company." };
 
-	if (!(await contextDevEnabled())) {
-		const reason =
-			"Context.dev is not configured, so there is nowhere to look.";
+	if (!companyResearch.available()) {
+		const reason = "Bright Data is not configured, so there is nowhere to look.";
 		await settle(companyId, EnrichmentStatus.SKIPPED, reason);
 		return { enriched: false, reason };
 	}
@@ -86,7 +85,7 @@ export async function runBrand({
 		},
 	});
 
-	const result = await brandByDomain(company.domain, fresh ? 0 : undefined);
+	const result = await companyResearch.lookup(company.domain);
 
 	if (result.outcome === "skipped") {
 		await settle(companyId, EnrichmentStatus.SKIPPED, result.reason);
@@ -157,7 +156,7 @@ export function brandOutcome(result: BrandResult): string {
 	const mirrored = result.mirrored ?? [];
 
 	if (filled.length === 0) {
-		return "Everything Context.dev returned was already on the record.";
+		return "Everything Bright Data returned was already on the record.";
 	}
 
 	return `Filled ${filled.join(", ")}.${mirrored.length > 0 ? ` Copied ${mirrored.length} image(s) in-house.` : ""}`;

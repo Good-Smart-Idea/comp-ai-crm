@@ -27,7 +27,7 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
-import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
+import { agentModelOutput, modelCatalogOutput, setAgentModelInput, companyResearchProviderOutput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
@@ -620,13 +620,9 @@ const appRouter = t.router({
       .input(setAgentModelInput)
       .output(agentModelOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    researchKey: publicProcedure
-      .output(researchKeyOutput)
+    companyResearchProvider: publicProcedure
+      .output(companyResearchProviderOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setResearchKey: publicProcedure
-      .input(setResearchKeyInput)
-      .output(researchKeyOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     archiveRetention: publicProcedure
       .output(archiveRetentionOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),

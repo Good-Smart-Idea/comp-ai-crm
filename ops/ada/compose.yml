@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16.11-bookworm@sha256:8d5f8486c9be456cedd25c7acff28cb9ed8f3f23bf9c865a5f899d6ea8efadf0
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  agent:
+    image: ${IMAGE:?Set IMAGE to the reviewed image tag}
+    restart: unless-stopped
+    env_file: ../../.env
+    command: bun run --filter=agent start
+    environment:
+      PORT: 2000
+    depends_on:
+      postgres:
+        condition: service_started
+    networks:
+      - backend
+
+  api:
+    image: ${IMAGE:?Set IMAGE to the reviewed image tag}
+    restart: unless-stopped
+    env_file: ../../.env
+    command: bun run --filter=api start:prod
+    environment:
+      AGENT_URL: http://agent:2000
+    depends_on:
+      postgres:
+        condition: service_started
+      agent:
+        condition: service_started
+    ports:
+      - "127.0.0.1:3001:3001"
+    networks:
+      - backend
+      - web
+
+  app:
+    image: ${IMAGE:?Set IMAGE to the reviewed image tag}
+    restart: unless-stopped
+    env_file: ../../.env
+    command: bun --cwd apps/app start -p 3000
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - web
+
+networks:
+  backend:
+    internal: true
+  web:

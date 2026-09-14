@@ -1,12 +1,11 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import {
-	CONTEXT_DEV_PEOPLE,
-	CONTEXT_DEV_SOURCE,
+	MANAGED_PERSON_RESEARCH,
+	MANAGED_PERSON_RESEARCH_SOURCE,
 	enabled,
 	unavailable,
 } from "../lib/capabilities";
-import { CONTEXT } from "../lib/context-config";
 import { spend } from "../lib/focus";
 import { verdictFor } from "../lib/identity";
 import { personByClues } from "../lib/people";
@@ -30,11 +29,11 @@ export default defineTool({
 			.describe("The last name, if the CRM holds one."),
 	}),
 	async execute({ email, companyName, companyDomain, firstName, lastName }) {
-		if (!(await enabled(CONTEXT_DEV_PEOPLE))) {
-			return { found: false as const, ...unavailable(CONTEXT_DEV_SOURCE) };
+		if (!(await enabled(MANAGED_PERSON_RESEARCH))) {
+			return { found: false as const, ...unavailable(MANAGED_PERSON_RESEARCH_SOURCE) };
 		}
 
-		const charge = spend(CONTEXT.people.enrichCost);
+		const charge = spend(2);
 		if (!charge.ok) return { found: false as const, reason: charge.reason };
 
 		const result = await personByClues({

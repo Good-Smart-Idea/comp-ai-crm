@@ -1,4 +1,3 @@
-import { CONTEXT_DEV_SIGNUP_URL } from "@crm/db/settings";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
@@ -15,7 +14,7 @@ import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { AgentModel } from "./agent-model";
 import { ArchiveRetention } from "./archive-retention";
-import { ResearchKey } from "./research-key";
+import { CompanyResearchProvider } from "./research-key";
 import { WorkspaceForm } from "./workspace-form";
 
 export const metadata: Metadata = {
@@ -53,7 +52,9 @@ async function Settings() {
 		queryClient.prefetchQuery(trpc.workspace.get.queryOptions()),
 		queryClient.prefetchQuery(trpc.settings.agentModel.queryOptions()),
 		queryClient.prefetchQuery(trpc.settings.modelCatalog.queryOptions()),
-		queryClient.prefetchQuery(trpc.settings.researchKey.queryOptions()),
+		queryClient.prefetchQuery(
+			trpc.settings.companyResearchProvider.queryOptions(),
+		),
 		queryClient.prefetchQuery(trpc.settings.archiveRetention.queryOptions()),
 	]);
 
@@ -61,7 +62,7 @@ async function Settings() {
 		<HydrateClient>
 			<div className="flex max-w-3xl flex-col gap-6">
 				<WorkspaceForm />
-				<ResearchKey signupUrl={CONTEXT_DEV_SIGNUP_URL} />
+				<CompanyResearchProvider />
 				<ArchiveRetention />
 				<AgentModel />
 			</div>

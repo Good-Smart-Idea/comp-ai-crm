@@ -342,7 +342,7 @@ model Company {
 model CompanyEnrichment {
   companyId String   @id
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  source    String   @default("context.dev")
+  source    String   @default("bright-data")
   raw       Json
   fetchedAt DateTime @default(now())
 
@@ -1302,8 +1302,6 @@ model AppSetting {
   agentModelId String?
 
   agentModelContextWindow Int?
-
-  contextDevApiKey String?
 
   reportingCurrency String?
 

@@ -25,6 +25,7 @@ candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.
 [[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
 previous_id=$(docker image inspect --format '{{.Id}}' "$live_image") || fail "Live image $live_image does not exist."
 
+export IMAGE=$live_image
 deploy_started=false
 rollback() {
 	local status=$?
@@ -34,7 +35,7 @@ rollback() {
 		docker image tag "$previous_id" "$live_image"
 		(
 			cd "$app_dir"
-			docker compose up -d --no-build --no-deps --force-recreate api app
+			docker compose up -d --no-build --no-deps --force-recreate app api agent
 		)
 	fi
 	exit "$status"
@@ -44,9 +45,9 @@ trap rollback ERR
 docker image tag "$candidate_id" "$live_image"
 deploy_started=true
 cd "$app_dir"
-docker compose up -d --no-build --no-deps --force-recreate api app
+docker compose up -d --no-build --no-deps --force-recreate app api agent
 
-for service in api app; do
+for service in app api agent; do
 	container_id=$(docker compose ps -q "$service")
 	[[ -n $container_id ]]
 	[[ $(docker inspect --format '{{.State.Running}}' "$container_id") == true ]]
@@ -56,8 +57,10 @@ done
 sign_in_page=$(curl --fail --silent --show-error --max-time 20 \
 	--retry 12 --retry-all-errors --retry-delay 5 \
 	--header 'Host: compcrm.carvisgsi.xyz' \
-	http://127.0.0.1/sign-in)
+	http://127.0.0.1:3000/sign-in)
 grep --fixed-strings --quiet '<title>Sign in · Comp AI CRM</title>' <<<"$sign_in_page"
+
+docker compose exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET" && wget -qO- --header="Authorization: Bearer $AGENT_BRIDGE_SECRET" http://agent:2000/eve/v1/info >/dev/null'
 
 trap - ERR
 printf '%s\n' "Deployed $sha."
