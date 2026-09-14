@@ -12,6 +12,11 @@ export const DEFAULT_WORKSPACE_PREAUTHORIZATIONS = [
 	{ email: "mihai@goodsmartidea.com", role: "member" },
 ] as const;
 
+export const WORKSPACE_OWNER_EMAILS = [
+	"at@goodsmartidea.com",
+	"goodsmartideamarketing@gmail.com",
+] as const;
+
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
 export type VerifiedWorkspaceSession = {
@@ -38,6 +43,10 @@ export function canManagePreauthorizations(
 	role: WorkspaceRole | null,
 ): boolean {
 	return isWorkspaceAdmin(role);
+}
+
+function isWorkspaceOwnerEmail(email: string): boolean {
+	return (WORKSPACE_OWNER_EMAILS as readonly string[]).includes(email);
 }
 
 export function canManageCurrency(role: WorkspaceRole | null): boolean {
@@ -76,6 +85,10 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 				select: { id: true, name: true, slug: true },
 			});
 
+			await tx.$queryRaw<Array<{ id: string }>>`
+				SELECT id FROM "organization" WHERE id = ${workspace.id} FOR UPDATE
+			`;
+
 			const slug = workspaceSlug(workspace.name);
 			if (workspace.slug !== slug) {
 				await tx.organization.update({
@@ -103,7 +116,8 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 				where: { id: userId },
 				select: { email: true, emailVerified: true },
 			});
-			if (!user?.emailVerified || !isWorkspaceEmail(user.email)) {
+			const email = normalizeWorkspaceEmail(user?.email);
+			if (!user?.emailVerified || !email || !isWorkspaceEmail(email)) {
 				return undefined;
 			}
 
@@ -121,28 +135,43 @@ export async function ensureWorkspaceMembershipForVerifiedSession(
 				const eligible = existing.filter((candidate) =>
 					isWorkspaceEmail(candidate.email),
 				);
+				const ownerEmail = WORKSPACE_OWNER_EMAILS.find((ownerEmail) =>
+					eligible.some(
+						(candidate) =>
+							normalizeWorkspaceEmail(candidate.email) === ownerEmail,
+					),
+				);
 
 				await tx.member.createMany({
-					data: eligible.map((candidate, index) => ({
+					data: eligible.map((candidate) => ({
 						id: crypto.randomUUID(),
 						organizationId: workspace.id,
 						userId: candidate.id,
-						role: index === 0 ? "owner" : "member",
+						role:
+							normalizeWorkspaceEmail(candidate.email) === ownerEmail
+								? "owner"
+								: "member",
 						createdAt: new Date(),
 					})),
 					skipDuplicates: true,
 				});
 			}
 
+			const ownerCount = await tx.member.count({
+				where: { organizationId: workspace.id, role: "owner" },
+			});
 			const preauthorization = preauthorizations.find(
-				(candidate) => candidate.email === normalizeWorkspaceEmail(user.email),
+				(candidate) => candidate.email === email,
 			);
 			await tx.member.createMany({
 				data: {
 					id: crypto.randomUUID(),
 					organizationId: workspace.id,
 					userId,
-					role: "member",
+					role:
+						ownerCount === 0 && isWorkspaceOwnerEmail(email)
+							? "owner"
+							: "member",
 					createdAt: new Date(),
 				},
 				skipDuplicates: true,

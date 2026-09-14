@@ -16,8 +16,6 @@ fallback(
 fallback("BETTER_AUTH_SECRET", "test-secret-at-least-32-characters-long");
 fallback("API_URL", "http://localhost:3001");
 fallback("ALLOWED_SIGN_IN", "example.com");
-fallback("GOOGLE_CLIENT_ID", "test-google-client-id");
-fallback("GOOGLE_CLIENT_SECRET", "test-google-client-secret");
 
 describe("Auth (e2e)", () => {
 	let app: INestApplication;
@@ -60,9 +58,16 @@ describe("Auth (e2e)", () => {
 			.get("/api/trpc/sso.signInOptions")
 			.expect(200);
 
+		const googleConfigured = Boolean(
+			process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+		);
+		const microsoftConfigured = Boolean(
+			process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET,
+		);
+
 		expect(response.body.result.data).toEqual({
-			google: expect.any(Boolean),
-			microsoft: expect.any(Boolean),
+			google: googleConfigured,
+			microsoft: microsoftConfigured,
 			providers: [],
 		});
 	});

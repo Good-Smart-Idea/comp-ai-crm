@@ -4,6 +4,7 @@ import {
 	ensureWorkspaceMembership,
 	ensureWorkspaceMembershipForVerifiedSession,
 	WORKSPACE_ID,
+	WORKSPACE_OWNER_EMAILS,
 } from "../src/organization";
 
 const suffix = process.env.TEST_RUN_ID ?? "organization-spec";
@@ -13,12 +14,16 @@ const emailOf = (label: string) => `${label}.${suffix}@example.test`;
 let firstId: string;
 let secondId: string;
 
-const seedUser = async (label: string, createdAt: Date): Promise<string> => {
+const seedUser = async (
+	label: string,
+	createdAt: Date,
+	email = emailOf(label),
+): Promise<string> => {
 	const user = await db.user.create({
 		data: {
 			id: `${suffix}-${label}`,
 			name: label,
-			email: emailOf(label),
+			email,
 			emailVerified: true,
 			createdAt,
 			updatedAt: createdAt,
@@ -43,7 +48,7 @@ const clear = async () => {
 		where: { userId: { startsWith: `${suffix}-` } },
 	});
 	await db.user.deleteMany({
-		where: { email: { endsWith: `.${suffix}@example.test` } },
+		where: { id: { startsWith: `${suffix}-` } },
 	});
 
 	const strangers = await db.member.count({
@@ -58,17 +63,29 @@ const clear = async () => {
 };
 
 beforeEach(async () => {
-	process.env.ALLOWED_SIGN_IN = "example.test,mihai@goodsmartidea.com";
+	process.env.ALLOWED_SIGN_IN = [
+		"example.test",
+		"mihai@goodsmartidea.com",
+		...WORKSPACE_OWNER_EMAILS,
+	].join(",");
 	await clear();
 
-	firstId = await seedUser("first", new Date("2020-01-01T00:00:00Z"));
-	secondId = await seedUser("second", new Date("2021-01-01T00:00:00Z"));
+	firstId = await seedUser(
+		"first",
+		new Date("2021-01-01T00:00:00Z"),
+		WORKSPACE_OWNER_EMAILS[0],
+	);
+	secondId = await seedUser(
+		"second",
+		new Date("2020-01-01T00:00:00Z"),
+		"mihai@goodsmartidea.com",
+	);
 });
 
 afterAll(clear);
 
 describe("ensureWorkspaceMembership", () => {
-	it("creates the one workspace and enrols everyone who already had an account", async () => {
+	it("assigns the primary owner before Mihai regardless of account age", async () => {
 		const workspaceId = await ensureWorkspaceMembership(secondId);
 
 		expect(workspaceId).toBe(WORKSPACE_ID);
@@ -76,17 +93,53 @@ describe("ensureWorkspaceMembership", () => {
 		expect(await roleOf(secondId)).toBe("member");
 	});
 
-	it("keeps the first eligible account as owner when it is preauthorized", async () => {
+	it("uses the Google address only when the primary owner is absent", async () => {
+		await db.user.delete({ where: { id: firstId } });
+		const fallbackId = await seedUser(
+			"fallback",
+			new Date("2022-01-01T00:00:00Z"),
+			WORKSPACE_OWNER_EMAILS[1],
+		);
+
+		await ensureWorkspaceMembership(secondId);
+
+		expect(await roleOf(fallbackId)).toBe("owner");
+		expect(await roleOf(secondId)).toBe("member");
+	});
+
+	it("keeps Mihai a member until a configured owner signs in", async () => {
+		await db.user.delete({ where: { id: firstId } });
+
+		await ensureWorkspaceMembership(secondId);
+
+		expect(await roleOf(secondId)).toBe("member");
+		expect(
+			await db.member.count({
+				where: { organizationId: WORKSPACE_ID, role: "owner" },
+			}),
+		).toBe(0);
+
+		const primaryId = await seedUser(
+			"primary",
+			new Date("2022-01-01T00:00:00Z"),
+			WORKSPACE_OWNER_EMAILS[0],
+		);
+		await ensureWorkspaceMembership(primaryId);
+
+		expect(await roleOf(primaryId)).toBe("owner");
+	});
+
+	it("keeps the primary owner role when it is preauthorized", async () => {
 		await db.workspacePreauthorization.upsert({
 			where: {
 				organizationId_email: {
 					organizationId: WORKSPACE_ID,
-					email: emailOf("first"),
+					email: WORKSPACE_OWNER_EMAILS[0],
 				},
 			},
 			create: {
 				organizationId: WORKSPACE_ID,
-				email: emailOf("first"),
+				email: WORKSPACE_OWNER_EMAILS[0],
 				role: "member",
 			},
 			update: {},
@@ -100,7 +153,7 @@ describe("ensureWorkspaceMembership", () => {
 				where: {
 					organizationId_email: {
 						organizationId: WORKSPACE_ID,
-						email: emailOf("first"),
+						email: WORKSPACE_OWNER_EMAILS[0],
 					},
 				},
 			}),
@@ -158,6 +211,7 @@ describe("ensureWorkspaceMembership", () => {
 	});
 
 	it("stores Mihai as pending without creating a user", async () => {
+		await db.user.delete({ where: { id: secondId } });
 		await ensureWorkspaceMembership(firstId);
 
 		expect(
@@ -211,6 +265,7 @@ describe("ensureWorkspaceMembership", () => {
 	});
 
 	it("atomically gives Mihai the pending member role once", async () => {
+		await db.user.delete({ where: { id: secondId } });
 		await ensureWorkspaceMembership(firstId);
 		const mihai = await db.user.create({
 			data: {

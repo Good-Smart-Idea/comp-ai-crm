@@ -55,8 +55,9 @@ here, what do we sell.
 - **External identity integration resolves a real User first.** It calls
   `ensureWorkspaceMembershipForVerifiedSession` with that user id. This boundary takes
   no email, header, query, token, or workspace id.
-- **First account is owner**, and the hook enrols pre-existing eligible users, oldest
-  first.
+- **The primary owner is `at@goodsmartidea.com`; the Google fallback is
+  `goodsmartideamarketing@gmail.com`.** The hook gives Mihai the member role. It
+  never creates a User for any pending address.
 - **Permissions come from `@crm/auth`** — `canRenameWorkspace`, `canChangeRole`,
   `canConfigureSso`, `canManageCurrency` — enforced by the service *and* used to
   disable the UI control, so the button and the 403 cannot disagree.

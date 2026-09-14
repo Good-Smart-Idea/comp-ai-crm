@@ -25,11 +25,18 @@ import {
 } from "./workspace.contracts";
 import { WorkspaceService } from "./workspace.service";
 
-function assertMutationOrigin(ctx: AuthedTrpcContext): void {
-	const origin = z.string().safeParse(ctx.req?.headers.origin);
-	if (!origin.success || !isTrustedOrigin(origin.data)) {
+export function assertWorkspaceMutationOrigin(
+	origin: string | undefined,
+): void {
+	const parsed = z.string().safeParse(origin);
+	if (!parsed.success || !isTrustedOrigin(parsed.data)) {
 		throw new ForbiddenException("The request origin is not trusted.");
 	}
+}
+
+function assertMutationOrigin(ctx: AuthedTrpcContext): void {
+	const origin = ctx.req?.headers.origin;
+	assertWorkspaceMutationOrigin(origin);
 }
 
 @Router({ alias: "workspace" })

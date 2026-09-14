@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
+import {
+	DEFAULT_WORKSPACE_NAME,
+	ensureWorkspaceMembership,
+	WORKSPACE_ID,
+} from "@crm/auth";
 import { db } from "@crm/db";
 import { workspaceSlug } from "@crm/db/workspace";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
@@ -9,6 +13,8 @@ import { WorkspaceService } from "../src/workspace/workspace.service";
 const suffix = crypto.randomUUID();
 const ownerId = `preauthorization-owner-${suffix}`;
 const memberId = `preauthorization-member-${suffix}`;
+const joiningUserId = `preauthorization-joining-${suffix}`;
+const joiningEmail = `${joiningUserId}@example.test`;
 const otherOrganizationId = `preauthorization-other-${suffix}`;
 const otherPreauthorizationId = `preauthorization-other-row-${suffix}`;
 const otherMemberRowId = `preauthorization-other-member-${suffix}`;
@@ -38,6 +44,12 @@ beforeAll(async () => {
 				id: memberId,
 				name: "Preauthorization Member",
 				email: `${memberId}@example.test`,
+				emailVerified: true,
+			},
+			{
+				id: joiningUserId,
+				name: "Joining Member",
+				email: joiningEmail,
 				emailVerified: true,
 			},
 		],
@@ -93,9 +105,11 @@ afterAll(async () => {
 		where: { email: { contains: suffix } },
 	});
 	await db.member.deleteMany({
-		where: { userId: { in: [ownerId, memberId] } },
+		where: { userId: { in: [ownerId, memberId, joiningUserId] } },
 	});
-	await db.user.deleteMany({ where: { id: { in: [ownerId, memberId] } } });
+	await db.user.deleteMany({
+		where: { id: { in: [ownerId, memberId, joiningUserId] } },
+	});
 });
 
 describe("workspace preauthorizations", () => {
@@ -136,6 +150,34 @@ describe("workspace preauthorizations", () => {
 				role: "member",
 			}),
 		).rejects.toThrow("exact sign-in allow-list");
+	});
+
+	it("serializes preauthorization with the verified sign-in", async () => {
+		await Promise.allSettled([
+			ensureWorkspaceMembership(joiningUserId),
+			service.preauthorize(ownerId, { email: joiningEmail, role: "member" }),
+		]);
+
+		expect(
+			await db.member.findUnique({
+				where: {
+					organizationId_userId: {
+						organizationId: WORKSPACE_ID,
+						userId: joiningUserId,
+					},
+				},
+			}),
+		).not.toBeNull();
+		expect(
+			await db.workspacePreauthorization.findUnique({
+				where: {
+					organizationId_email: {
+						organizationId: WORKSPACE_ID,
+						email: joiningEmail,
+					},
+				},
+			}),
+		).toBeNull();
 	});
 
 	it("refuses preauthorization and role changes from another workspace", async () => {

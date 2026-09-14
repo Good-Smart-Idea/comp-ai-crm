@@ -209,26 +209,32 @@ export class WorkspaceService {
 			);
 		}
 
-		const member = await this.db.member.findFirst({
-			where: {
-				organizationId: WORKSPACE_ID,
-				user: { email: { equals: email, mode: "insensitive" } },
-			},
-			select: { id: true },
-		});
-		if (member) {
-			throw new BadRequestException(
-				"That person is already a workspace member.",
-			);
-		}
+		const preauthorization = await this.db.$transaction(async (tx) => {
+			await tx.$queryRaw<Array<{ id: string }>>`
+				SELECT id FROM "organization" WHERE id = ${WORKSPACE_ID} FOR UPDATE
+			`;
 
-		const preauthorization = await this.db.workspacePreauthorization.upsert({
-			where: {
-				organizationId_email: { organizationId: WORKSPACE_ID, email },
-			},
-			create: { organizationId: WORKSPACE_ID, email, role: input.role },
-			update: {},
-			select: { id: true, email: true, createdAt: true },
+			const member = await tx.member.findFirst({
+				where: {
+					organizationId: WORKSPACE_ID,
+					user: { email: { equals: email, mode: "insensitive" } },
+				},
+				select: { id: true },
+			});
+			if (member) {
+				throw new BadRequestException(
+					"That person is already a workspace member.",
+				);
+			}
+
+			return tx.workspacePreauthorization.upsert({
+				where: {
+					organizationId_email: { organizationId: WORKSPACE_ID, email },
+				},
+				create: { organizationId: WORKSPACE_ID, email, role: input.role },
+				update: {},
+				select: { id: true, email: true, createdAt: true },
+			});
 		});
 
 		this.logger.log({
