@@ -79,7 +79,9 @@ describe("Bright Data company research", () => {
 		});
 		const result = await provider.lookup("acme.example");
 		expect(result.outcome).toBe("found");
-		expect(request?.headers).toMatchObject({ authorization: "Bearer test-token" });
+		expect(request?.headers).toMatchObject({
+			authorization: "Bearer test-token",
+		});
 		expect(JSON.parse(String(request?.body))).toEqual({
 			zone: "unlocker-zone",
 			url: "https://acme.example/",
@@ -96,18 +98,27 @@ describe("Bright Data company research", () => {
 			bodies.push(JSON.parse(String(init.body)));
 			calls += 1;
 			if (calls === 1) return new Response("retry", { status: 503 });
-			if (calls === 2) return new Response(JSON.stringify({ organic: [{ link: "https://www.acme.example/about" }] }));
+			if (calls === 2)
+				return new Response(
+					JSON.stringify({
+						organic: [{ link: "https://www.acme.example/about" }],
+					}),
+				);
 			return new Response("<title>Acme</title>");
 		});
 		await provider.lookup("acme.example");
-		const serp = bodies.find((body) => (body as { zone: string }).zone === "serp-zone") as { url: string };
+		const serp = bodies.find(
+			(body) => (body as { zone: string }).zone === "serp-zone",
+		) as { url: string };
 		expect(serp.url).toContain("https://www.google.com/search?");
 		expect(serp.url).toContain("brd_json=1");
 	});
 
 	it("rejects local, mapped IPv6, userinfo, and non-HTTPS targets", async () => {
 		configure();
-		const provider = new BrightDataCompanyResearch(async () => new Response("ok"));
+		const provider = new BrightDataCompanyResearch(
+			async () => new Response("ok"),
+		);
 		for (const url of [
 			"http://8.8.8.8/",
 			"https://user@example.com/",

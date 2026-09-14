@@ -1,9 +1,9 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import {
+	enabled,
 	MANAGED_PERSON_RESEARCH,
 	MANAGED_PERSON_RESEARCH_SOURCE,
-	enabled,
 	unavailable,
 } from "../lib/capabilities";
 import { spend } from "../lib/focus";

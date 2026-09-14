@@ -1,4 +1,4 @@
-import { ActivityType, Prisma, db } from "@crm/db";
+import { ActivityType, db, type Prisma } from "@crm/db";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { companyResearch } from "../lib/company-research";

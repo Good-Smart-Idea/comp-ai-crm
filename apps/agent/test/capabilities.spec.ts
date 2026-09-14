@@ -40,12 +40,20 @@ afterEach(() => {
 
 describe("managed capabilities", () => {
 	it("keeps company research unavailable without managed credentials", () => {
-		expect(capabilitiesFrom().find((capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH)?.enabled).toBe(false);
+		expect(
+			capabilitiesFrom().find(
+				(capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH,
+			)?.enabled,
+		).toBe(false);
 	});
 
 	it("enables Bright Data only when its managed credentials are complete", () => {
 		configure();
-		expect(capabilitiesFrom().find((capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH)?.enabled).toBe(true);
+		expect(
+			capabilitiesFrom().find(
+				(capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH,
+			)?.enabled,
+		).toBe(true);
 	});
 
 	it("does not turn an unrelated variable into a capability", async () => {
@@ -55,7 +63,9 @@ describe("managed capabilities", () => {
 	});
 
 	it("states that an unavailable provider must not be retried", () => {
-		expect(unavailable("Bright Data").reason).toContain("retrying will not help");
+		expect(unavailable("Bright Data").reason).toContain(
+			"retrying will not help",
+		);
 	});
 
 	it("does not expose managed credentials in the capability briefing", () => {

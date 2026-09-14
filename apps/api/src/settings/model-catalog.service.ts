@@ -16,7 +16,12 @@ export interface CatalogModel {
 	source: string | null;
 }
 
-const rate = z.union([z.number(), z.string()]).transform(Number).refine(Number.isFinite).nullable().catch(null);
+const rate = z
+	.union([z.number(), z.string()])
+	.transform(Number)
+	.refine(Number.isFinite)
+	.nullable()
+	.catch(null);
 const catalogModel = z.object({
 	id: z.string().trim().min(1),
 	name: z.string().catch(""),
@@ -39,23 +44,33 @@ const catalogResponse = z.union([
 export function parseCatalog(value: unknown): CatalogModel[] | null {
 	const parsed = catalogResponse.safeParse(value);
 	if (!parsed.success) return null;
-	const entries = Array.isArray(parsed.data) ? parsed.data : "data" in parsed.data ? parsed.data.data : parsed.data.models;
+	const entries = Array.isArray(parsed.data)
+		? parsed.data
+		: "data" in parsed.data
+			? parsed.data.data
+			: parsed.data.models;
 	const models = entries.flatMap((entry) => {
 		const model = catalogModel.safeParse(entry);
 		if (!model.success || model.data.type !== "language") return [];
 		if (model.data.tags && !model.data.tags.includes("tool-use")) return [];
 		const input = model.data.pricing?.input ?? null;
 		const output = model.data.pricing?.output ?? null;
-		return [{
-			id: model.data.id,
-			name: model.data.name || model.data.id,
-			provider: model.data.provider || model.data.owned_by || "managed",
-			contextWindowTokens: model.data.contextWindowTokens ?? model.data.context_window,
-			pricing: input !== null && output !== null ? { input, output } : null,
-			source: model.data.source,
-		}];
+		return [
+			{
+				id: model.data.id,
+				name: model.data.name || model.data.id,
+				provider: model.data.provider || model.data.owned_by || "managed",
+				contextWindowTokens:
+					model.data.contextWindowTokens ?? model.data.context_window,
+				pricing: input !== null && output !== null ? { input, output } : null,
+				source: model.data.source,
+			},
+		];
 	});
-	return [...new Map(models.map((model) => [model.id, model])).values()].sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name));
+	return [...new Map(models.map((model) => [model.id, model])).values()].sort(
+		(a, b) =>
+			a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name),
+	);
 }
 
 @Injectable()
@@ -65,7 +80,9 @@ export class ModelCatalogService {
 	constructor(@Inject(CACHE_MANAGER) private readonly cache: Cache) {}
 
 	configured(): boolean {
-		return Boolean(this.endpoint() && process.env.GSI_MODEL_GATEWAY_API_KEY?.trim());
+		return Boolean(
+			this.endpoint() && process.env.GSI_MODEL_GATEWAY_API_KEY?.trim(),
+		);
 	}
 
 	async models(): Promise<CatalogModel[] | null> {
@@ -99,7 +116,10 @@ export class ModelCatalogService {
 				signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
 			});
 			if (!response.ok) {
-				this.logger.warn({ message: "Model catalog request failed", status: response.status });
+				this.logger.warn({
+					message: "Model catalog request failed",
+					status: response.status,
+				});
 				return null;
 			}
 			const models = parseCatalog(await response.json());
@@ -107,10 +127,16 @@ export class ModelCatalogService {
 				this.logger.warn({ message: "Model catalog response was invalid" });
 				return null;
 			}
-			this.logger.log({ message: "Model catalog loaded", models: models.length });
+			this.logger.log({
+				message: "Model catalog loaded",
+				models: models.length,
+			});
 			return models;
 		} catch (error) {
-			this.logger.warn({ message: "Model catalog unavailable", reason: error instanceof Error ? error.message : String(error) });
+			this.logger.warn({
+				message: "Model catalog unavailable",
+				reason: error instanceof Error ? error.message : String(error),
+			});
 			return null;
 		}
 	}

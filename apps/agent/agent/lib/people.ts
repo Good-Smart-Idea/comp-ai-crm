@@ -58,18 +58,55 @@ const flag = z.boolean().nullable().catch(null);
 const number = z.number().nullable().catch(null);
 const list = z.array(text).catch([]);
 const emptyOrganisation = { name: null, domain: null };
-const organisation = z.object({ name: text, domain: text }).catch(emptyOrganisation);
-const partialDate = z.object({ year: z.number(), month: number, day: number }).nullable().catch(null);
-const roleShape = z.object({ title: text, organization: organisation, start_date: partialDate, end_date: partialDate, location: text, description: text, is_current: flag });
-const emptyRole = { title: null, organization: emptyOrganisation, start_date: null, end_date: null, location: null, description: null, is_current: null };
-const educationShape = z.object({ institution: organisation, degree: text, field_of_study: text, start_date: partialDate, end_date: partialDate });
-const emptyEducation = { institution: emptyOrganisation, degree: null, field_of_study: null, start_date: null, end_date: null };
+const organisation = z
+	.object({ name: text, domain: text })
+	.catch(emptyOrganisation);
+const partialDate = z
+	.object({ year: z.number(), month: number, day: number })
+	.nullable()
+	.catch(null);
+const roleShape = z.object({
+	title: text,
+	organization: organisation,
+	start_date: partialDate,
+	end_date: partialDate,
+	location: text,
+	description: text,
+	is_current: flag,
+});
+const emptyRole = {
+	title: null,
+	organization: emptyOrganisation,
+	start_date: null,
+	end_date: null,
+	location: null,
+	description: null,
+	is_current: null,
+};
+const educationShape = z.object({
+	institution: organisation,
+	degree: text,
+	field_of_study: text,
+	start_date: partialDate,
+	end_date: partialDate,
+});
+const emptyEducation = {
+	institution: emptyOrganisation,
+	degree: null,
+	field_of_study: null,
+	start_date: null,
+	end_date: null,
+};
 const personShape = z.object({
-	name: z.object({ first: text, last: text, full: text }).catch({ first: null, last: null, full: null }),
+	name: z
+		.object({ first: text, last: text, full: text })
+		.catch({ first: null, last: null, full: null }),
 	email: text,
 	avatar_url: text,
 	bio: text,
-	location: z.object({ display: text, city: text, region: text, country: text }).catch({ display: null, city: null, region: null, country: null }),
+	location: z
+		.object({ display: text, city: text, region: text, country: text })
+		.catch({ display: null, city: null, region: null, country: null }),
 	social_urls: list,
 	website_urls: list,
 	skills: list,
@@ -82,27 +119,47 @@ export type EnrichedMatch =
 	| { status: "candidate"; score: number; person: z.input<typeof personShape> }
 	| { status: "not_found"; score: null; person: null };
 
-const candidateShape = z.object({ status: z.literal("candidate"), score: z.number(), person: personShape });
+const candidateShape = z.object({
+	status: z.literal("candidate"),
+	score: z.number(),
+	person: personShape,
+});
 
-export async function personByProfileUrl(profileUrl: string): Promise<PersonMatch> {
+export async function personByProfileUrl(
+	profileUrl: string,
+): Promise<PersonMatch> {
 	if (!companyResearch.available()) return unavailable();
 	const result = await companyResearch.read(profileUrl);
-	if (result.outcome === "failed") return { outcome: "failed", reason: result.reason, retryable: true };
+	if (result.outcome === "failed")
+		return { outcome: "failed", reason: result.reason, retryable: true };
 	return matchFrom(documentMatch(profileUrl, result.document));
 }
 
-export async function personByClues(clues: IdentityClues): Promise<PersonMatch> {
+export async function personByClues(
+	clues: IdentityClues,
+): Promise<PersonMatch> {
 	if (!companyResearch.available()) return unavailable();
 	const profileUrl = await companyResearch.findProfile(clues);
-	return profileUrl ? personByProfileUrl(profileUrl) : { outcome: "skipped", reason: "No LinkedIn profile matched those work details." };
+	return profileUrl
+		? personByProfileUrl(profileUrl)
+		: {
+				outcome: "skipped",
+				reason: "No LinkedIn profile matched those work details.",
+			};
 }
 
 function unavailable(): PersonMatch {
-	return { outcome: "skipped", reason: "A managed person research provider is not configured." };
+	return {
+		outcome: "skipped",
+		reason: "A managed person research provider is not configured.",
+	};
 }
 
 function documentMatch(profileUrl: string, document: string): EnrichedMatch {
-	const title = meta("og:title", document) ?? /<title[^>]*>([^<]+)<\/title>/i.exec(document)?.[1] ?? null;
+	const title =
+		meta("og:title", document) ??
+		/<title[^>]*>([^<]+)<\/title>/i.exec(document)?.[1] ??
+		null;
 	const full = title?.replace(/\s*[|·-]\s*LinkedIn.*$/i, "").trim() || null;
 	const [first = null, ...rest] = full?.split(/\s+/) ?? [];
 	const last = rest.length > 0 ? rest.join(" ") : null;
@@ -126,20 +183,32 @@ function documentMatch(profileUrl: string, document: string): EnrichedMatch {
 }
 
 function meta(name: string, document: string): string | null {
-	return new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]+content=["']([^"']+)["']`, "i").exec(document)?.[1]?.trim() ?? null;
+	return (
+		new RegExp(
+			`<meta[^>]+(?:name|property)=["']${name}["'][^>]+content=["']([^"']+)["']`,
+			"i",
+		)
+			.exec(document)?.[1]
+			?.trim() ?? null
+	);
 }
 
 export function matchFrom(match: EnrichedMatch): PersonMatch {
 	const candidate = candidateShape.safeParse(match);
-	if (!candidate.success) return { outcome: "skipped", reason: "No person matched that profile." };
+	if (!candidate.success)
+		return { outcome: "skipped", reason: "No person matched that profile." };
 	if (candidate.data.score < MATCH_FLOOR)
-		return { outcome: "skipped", reason: "The managed provider could not tie a person to that profile." };
+		return {
+			outcome: "skipped",
+			reason: "The managed provider could not tie a person to that profile.",
+		};
 	return { outcome: "found", person: toPerson(candidate.data.person) };
 }
 
 function toPerson(raw: z.infer<typeof personShape>): Person {
 	const socialUrls = raw.social_urls.flatMap((url) => (url ? [url] : []));
-	const profileUrl = socialUrls.find((url) => slugFromProfileUrl(url) !== null) ?? null;
+	const profileUrl =
+		socialUrls.find((url) => slugFromProfileUrl(url) !== null) ?? null;
 	const current = raw.current_role ? [toRole(raw.current_role)] : [];
 	const experience = raw.experience.map(toRole);
 	return {
@@ -154,26 +223,56 @@ function toPerson(raw: z.infer<typeof personShape>): Person {
 		socialUrls,
 		websiteUrls: raw.website_urls.flatMap((url) => (url ? [url] : [])),
 		skills: raw.skills.flatMap((skill) => (skill ? [skill] : [])),
-		currentRoles: current.concat(experience.filter((role) => role.isCurrent && !current.some((held) => sameRole(held, role)))),
+		currentRoles: current.concat(
+			experience.filter(
+				(role) =>
+					role.isCurrent && !current.some((held) => sameRole(held, role)),
+			),
+		),
 		experience,
 		education: raw.education.map(toStudy),
 	};
 }
 
 function sameRole(held: Role, role: Role): boolean {
-	return held.organisation.name === role.organisation.name && held.title === role.title && held.startDate === role.startDate && held.endDate === role.endDate;
+	return (
+		held.organisation.name === role.organisation.name &&
+		held.title === role.title &&
+		held.startDate === role.startDate &&
+		held.endDate === role.endDate
+	);
 }
 
 function toRole(raw: z.infer<typeof roleShape>): Role {
-	return { title: raw.title, organisation: raw.organization, startDate: dateOf(raw.start_date), endDate: dateOf(raw.end_date), location: raw.location, description: raw.description, isCurrent: raw.is_current ?? raw.end_date === null };
+	return {
+		title: raw.title,
+		organisation: raw.organization,
+		startDate: dateOf(raw.start_date),
+		endDate: dateOf(raw.end_date),
+		location: raw.location,
+		description: raw.description,
+		isCurrent: raw.is_current ?? raw.end_date === null,
+	};
 }
 
 function toStudy(raw: z.infer<typeof educationShape>): Study {
-	return { institution: raw.institution, degree: raw.degree, fieldOfStudy: raw.field_of_study, startDate: dateOf(raw.start_date), endDate: dateOf(raw.end_date) };
+	return {
+		institution: raw.institution,
+		degree: raw.degree,
+		fieldOfStudy: raw.field_of_study,
+		startDate: dateOf(raw.start_date),
+		endDate: dateOf(raw.end_date),
+	};
 }
 
-function placeOf(location: { city: string | null; region: string | null; country: string | null }): string | null {
-	const parts = [location.city, location.region, location.country].flatMap((part) => (part ? [part] : []));
+function placeOf(location: {
+	city: string | null;
+	region: string | null;
+	country: string | null;
+}): string | null {
+	const parts = [location.city, location.region, location.country].flatMap(
+		(part) => (part ? [part] : []),
+	);
 	return parts.length > 0 ? parts.join(", ") : null;
 }
 
@@ -182,7 +281,9 @@ function dateOf(date: z.infer<typeof partialDate>): string | null {
 	const year = String(date.year).padStart(4, "0");
 	if (date.month === null) return year;
 	const month = String(date.month).padStart(2, "0");
-	return date.day === null ? `${year}-${month}` : `${year}-${month}-${String(date.day).padStart(2, "0")}`;
+	return date.day === null
+		? `${year}-${month}`
+		: `${year}-${month}-${String(date.day).padStart(2, "0")}`;
 }
 
 export function photoUrl(raw: string | null): string | null {
@@ -190,7 +291,12 @@ export function photoUrl(raw: string | null): string | null {
 	try {
 		const url = new URL(raw.trim());
 		const host = url.hostname.toLowerCase();
-		return url.protocol === "https:" && (host === "media.licdn.com" || host.endsWith(".licdn.com") || host === "media.brand.dev") ? url.toString() : null;
+		return url.protocol === "https:" &&
+			(host === "media.licdn.com" ||
+				host.endsWith(".licdn.com") ||
+				host === "media.brand.dev")
+			? url.toString()
+			: null;
 	} catch {
 		return null;
 	}
