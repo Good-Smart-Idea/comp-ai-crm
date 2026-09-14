@@ -14,6 +14,10 @@ export const DEFAULT_WORKSPACE_PREAUTHORIZATIONS = [
 
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
+export type VerifiedWorkspaceSession = {
+	userId: string;
+};
+
 export function isWorkspaceRole(value: string): value is WorkspaceRole {
 	return (WORKSPACE_ROLES as readonly string[]).includes(value);
 }
@@ -49,8 +53,15 @@ export function canManageTracking(role: WorkspaceRole | null): boolean {
 export async function ensureWorkspaceMembership(
 	userId: string,
 ): Promise<string | undefined> {
+	return ensureWorkspaceMembershipForVerifiedSession({ userId });
+}
+
+export async function ensureWorkspaceMembershipForVerifiedSession(
+	session: VerifiedWorkspaceSession,
+): Promise<string | undefined> {
 	try {
 		return await db.$transaction(async (tx) => {
+			const userId = session.userId;
 			const workspace = await tx.organization.upsert({
 				where: { id: WORKSPACE_ID },
 				create: {
@@ -100,11 +111,8 @@ export async function ensureWorkspaceMembership(
 				where: { organizationId: workspace.id },
 				select: { id: true, email: true, role: true },
 			});
-			const roleByEmail = new Map(
-				preauthorizations.map((preauthorization) => [
-					preauthorization.email,
-					toWorkspaceRole(preauthorization.role),
-				]),
+			const preauthorizedEmails = new Set(
+				preauthorizations.map((preauthorization) => preauthorization.email),
 			);
 
 			if (enrolled === 0) {
@@ -122,9 +130,13 @@ export async function ensureWorkspaceMembership(
 						id: crypto.randomUUID(),
 						organizationId: workspace.id,
 						userId: candidate.id,
-						role:
-							roleByEmail.get(normalizeWorkspaceEmail(candidate.email) ?? "") ??
-							(index === 0 ? "owner" : "member"),
+						role: preauthorizedEmails.has(
+							normalizeWorkspaceEmail(candidate.email) ?? "",
+						)
+							? "member"
+							: index === 0
+								? "owner"
+								: "member",
 						createdAt: new Date(),
 					})),
 					skipDuplicates: true,
@@ -142,16 +154,14 @@ export async function ensureWorkspaceMembership(
 					id: crypto.randomUUID(),
 					organizationId: workspace.id,
 					userId,
-					role: preauthorization
-						? toWorkspaceRole(preauthorization.role)
-						: "member",
+					role: "member",
 					createdAt: new Date(),
 				},
 				update: {},
 			});
 
 			if (preauthorization) {
-				await tx.workspacePreauthorization.delete({
+				await tx.workspacePreauthorization.deleteMany({
 					where: { id: preauthorization.id },
 				});
 			}

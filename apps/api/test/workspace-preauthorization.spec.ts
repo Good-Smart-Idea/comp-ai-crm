@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
 import { workspaceSlug } from "@crm/db/workspace";
+import { AgentTriggerService } from "../src/agent/agent-trigger.service";
+import { preauthorizeMemberInput } from "../src/workspace/workspace.contracts";
 import { WorkspaceService } from "../src/workspace/workspace.service";
 
 const suffix = crypto.randomUUID();
@@ -10,7 +12,7 @@ const memberId = `preauthorization-member-${suffix}`;
 const otherOrganizationId = `preauthorization-other-${suffix}`;
 const otherPreauthorizationId = `preauthorization-other-row-${suffix}`;
 const otherMemberRowId = `preauthorization-other-member-${suffix}`;
-const service = new WorkspaceService(db);
+const service = new WorkspaceService(db, new AgentTriggerService(db));
 
 beforeAll(async () => {
 	process.env.ALLOWED_SIGN_IN = "example.test";
@@ -95,6 +97,17 @@ afterAll(async () => {
 });
 
 describe("workspace preauthorizations", () => {
+	it("refuses privileged pending roles", () => {
+		for (const role of ["owner", "admin"]) {
+			expect(
+				preauthorizeMemberInput.safeParse({
+					email: `privileged-${suffix}@example.test`,
+					role,
+				}).success,
+			).toBe(false);
+		}
+	});
+
 	it("allows an owner to assign a pending member role", async () => {
 		const email = `pending-${suffix}@example.test`;
 		const preauthorization = await service.preauthorize(ownerId, {

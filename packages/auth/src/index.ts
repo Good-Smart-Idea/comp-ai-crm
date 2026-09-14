@@ -24,11 +24,13 @@ export {
 	DEFAULT_WORKSPACE_NAME,
 	DEFAULT_WORKSPACE_PREAUTHORIZATIONS,
 	ensureWorkspaceMembership,
+	ensureWorkspaceMembershipForVerifiedSession,
 	isWorkspaceAdmin,
 	isWorkspaceRole,
 	toWorkspaceRole,
 	WORKSPACE_ID,
 	WORKSPACE_ROLES,
+	type VerifiedWorkspaceSession,
 	type WorkspaceRole,
 	workspaceRoleOf,
 } from "./organization";

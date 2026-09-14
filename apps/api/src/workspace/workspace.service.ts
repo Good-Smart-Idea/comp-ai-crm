@@ -185,7 +185,7 @@ export class WorkspaceService {
 		const rows = await this.db.workspacePreauthorization.findMany({
 			where: { organizationId: WORKSPACE_ID },
 			orderBy: { createdAt: "asc" },
-			select: { id: true, email: true, role: true, createdAt: true },
+			select: { id: true, email: true, createdAt: true },
 		});
 
 		return rows.map((row) => this.toPreauthorization(row));
@@ -225,8 +225,8 @@ export class WorkspaceService {
 				organizationId_email: { organizationId: WORKSPACE_ID, email },
 			},
 			create: { organizationId: WORKSPACE_ID, email, role: input.role },
-			update: { role: input.role },
-			select: { id: true, email: true, role: true, createdAt: true },
+			update: {},
+			select: { id: true, email: true, createdAt: true },
 		});
 
 		this.logger.log({
@@ -322,13 +322,12 @@ export class WorkspaceService {
 	private toPreauthorization(row: {
 		id: string;
 		email: string;
-		role: string;
 		createdAt: Date;
 	}): WorkspacePreauthorization {
 		return {
 			id: row.id,
 			email: row.email,
-			role: toRole(row.role),
+			role: "member",
 			createdAt: row.createdAt.toISOString(),
 		};
 	}

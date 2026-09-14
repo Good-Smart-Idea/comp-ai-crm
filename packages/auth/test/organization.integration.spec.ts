@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import {
 	ensureWorkspaceMembership,
+	ensureWorkspaceMembershipForVerifiedSession,
 	WORKSPACE_ID,
 } from "../src/organization";
 
@@ -156,7 +157,11 @@ describe("ensureWorkspaceMembership", () => {
 			select: { id: true },
 		});
 
-		expect(await ensureWorkspaceMembership(unverified.id)).toBeUndefined();
+		expect(
+			await ensureWorkspaceMembershipForVerifiedSession({
+				userId: unverified.id,
+			}),
+		).toBeUndefined();
 		expect(await roleOf(unverified.id)).toBeNull();
 		await db.user.delete({ where: { id: unverified.id } });
 

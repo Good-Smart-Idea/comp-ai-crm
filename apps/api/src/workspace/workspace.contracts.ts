@@ -28,7 +28,7 @@ export const setMemberRoleInput = z.object({
 
 export const preauthorizeMemberInput = z.object({
 	email: z.email().trim().toLowerCase(),
-	role: z.enum(WORKSPACE_ROLES).default("member"),
+	role: z.literal("member").default("member"),
 });
 
 export const preauthorizationIdInput = z.object({ id: z.string().min(1) });
@@ -66,7 +66,7 @@ export type WorkspaceMember = z.infer<typeof workspaceMemberOutput>;
 export const workspacePreauthorizationOutput = z.object({
 	id: z.string(),
 	email: z.string(),
-	role: z.enum(WORKSPACE_ROLES),
+	role: z.literal("member"),
 	createdAt: z.string(),
 });
 

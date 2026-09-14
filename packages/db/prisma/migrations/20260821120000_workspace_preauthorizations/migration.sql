@@ -5,7 +5,8 @@ CREATE TABLE "workspacePreauthorization" (
     "role" TEXT NOT NULL DEFAULT 'member',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "workspacePreauthorization_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "workspacePreauthorization_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "workspacePreauthorization_role_check" CHECK ("role" = 'member')
 );
 
 CREATE UNIQUE INDEX "workspacePreauthorization_organizationId_email_key" ON "workspacePreauthorization"("organizationId", "email");
