@@ -7,7 +7,6 @@ import { AgentRunsService } from "./agent-runs.service";
 import { AgentTriggerService } from "./agent-trigger.service";
 import { AgentsRouter } from "./agents.router";
 import { DispatchHeartbeatService } from "./dispatch-heartbeat.service";
-import { ResearchKeyService } from "./research-key.service";
 
 @Module({
 	imports: [TrpcModule],
@@ -19,13 +18,7 @@ import { ResearchKeyService } from "./research-key.service";
 		AgentTriggerService,
 		AgentsRouter,
 		DispatchHeartbeatService,
-		ResearchKeyService,
 	],
-	exports: [
-		AgentAccessService,
-		AgentTriggerService,
-		AgentQueueService,
-		ResearchKeyService,
-	],
+	exports: [AgentAccessService, AgentTriggerService, AgentQueueService],
 })
 export class AgentModule {}

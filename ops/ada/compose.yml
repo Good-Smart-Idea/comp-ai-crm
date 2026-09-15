@@ -1,0 +1,74 @@
+name: compcrm
+x-env: &env
+  NODE_ENV: production
+  CRM_TELEMETRY_DISABLED: "1"
+  DATABASE_URL: postgresql://postgres:${CRM_DB_PASSWORD}@postgres:5432/crm?schema=public
+  API_URL: https://compcrm.carvisgsi.xyz
+  APP_URL: https://compcrm.carvisgsi.xyz
+services:
+  api:
+    image: ${IMAGE:?Set IMAGE to the reviewed image tag}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *env
+      PORT: "3001"
+      AGENT_URL: http://agent:2000
+    working_dir: /src
+    command: bun run --filter=api start:prod
+    ports: ["127.0.0.1:8531:3001"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      agent: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:3001/health\").then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  app:
+    image: ${IMAGE:?Set IMAGE to the reviewed image tag}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *env
+      AGENT_URL: http://agent:2000
+    working_dir: /src/apps/app
+    command: node node_modules/.bin/next start -p 3000
+    ports: ["127.0.0.1:8530:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:3000/sign-in\").then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  agent:
+    image: ${IMAGE:?Set IMAGE to the reviewed image tag}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *env
+      AGENT_PORT: "2000"
+    working_dir: /src
+    command: bun run --filter=agent start
+    volumes: ["./data/eve:/src/apps/agent/.eve"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:2000/eve/v1/health\").then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  postgres:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${CRM_DB_PASSWORD}
+      POSTGRES_DB: crm
+    volumes: ["./data/postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

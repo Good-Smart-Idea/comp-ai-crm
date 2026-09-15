@@ -342,7 +342,7 @@ model Company {
 model CompanyEnrichment {
   companyId String   @id
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  source    String   @default("context.dev")
+  source    String   @default("bright-data")
   raw       Json
   fetchedAt DateTime @default(now())
 
@@ -1303,8 +1303,6 @@ model AppSetting {
 
   agentModelContextWindow Int?
 
-  contextDevApiKey String?
-
   reportingCurrency String?
 
   ratesRefreshedAt DateTime?
@@ -1486,9 +1484,21 @@ model Organization {
   website     String?
   members     Member[]
   invitations Invitation[]
+  agentModel  WorkspaceAgentModel?
 
   @@unique([slug])
   @@map("organization")
+}
+
+model WorkspaceAgentModel {
+  workspaceId String @id
+  workspace   Organization @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  modelId            String?
+  modelContextWindow Int?
+  updatedAt          DateTime @updatedAt
+
+  @@map("workspaceAgentModel")
 }
 
 model WorkspaceProfile {

@@ -1,6 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { db, EnrichmentStatus } from "@crm/db";
-import { readContextDevKey, writeContextDevKey } from "@crm/db/settings";
 import { runBrand } from "../agent/lib/brand";
 import { settle } from "../agent/lib/enrichment";
 
@@ -148,19 +147,45 @@ async function domainlessCompany(status: EnrichmentStatus) {
 	return row.id;
 }
 
-describe("a brand task on a company with no domain", () => {
-	let key: string | null;
+const BRIGHT_DATA_KEYS = [
+	"BRIGHTDATA_API_TOKEN",
+	"BRIGHTDATA_UNLOCKER_USER",
+	"BRIGHTDATA_UNLOCKER_PASS",
+	"BRIGHTDATA_UNLOCKER_ZONE",
+	"BRIGHTDATA_SERP_USER",
+	"BRIGHTDATA_SERP_PASS",
+	"BRIGHTDATA_SERP_ZONE",
+] as const;
+const savedBrightData: Record<string, string | undefined> = {};
 
-	beforeAll(async () => {
-		key = await readContextDevKey(db);
+function configureBrightData() {
+	process.env.BRIGHTDATA_API_TOKEN = "test-token";
+	process.env.BRIGHTDATA_UNLOCKER_USER = "unlocker-user";
+	process.env.BRIGHTDATA_UNLOCKER_PASS = "unlocker-pass";
+	process.env.BRIGHTDATA_UNLOCKER_ZONE = "unlocker-zone";
+	process.env.BRIGHTDATA_SERP_USER = "serp-user";
+	process.env.BRIGHTDATA_SERP_PASS = "serp-pass";
+	process.env.BRIGHTDATA_SERP_ZONE = "serp-zone";
+}
+
+function clearBrightData() {
+	for (const key of BRIGHT_DATA_KEYS) delete process.env[key];
+}
+
+describe("a brand task on a company with no domain", () => {
+	beforeAll(() => {
+		for (const key of BRIGHT_DATA_KEYS) savedBrightData[key] = process.env[key];
 	});
 
-	afterAll(async () => {
-		await writeContextDevKey(db, key ?? "");
+	afterAll(() => {
+		for (const key of BRIGHT_DATA_KEYS) {
+			if (savedBrightData[key] === undefined) delete process.env[key];
+			else process.env[key] = savedBrightData[key];
+		}
 	});
 
 	it("marks the company skipped, because no sweep will find it again", async () => {
-		await writeContextDevKey(db, "ctx-test-key");
+		configureBrightData();
 		const id = await domainlessCompany(EnrichmentStatus.PENDING);
 
 		const result = await runBrand({ companyId: id });
@@ -169,8 +194,8 @@ describe("a brand task on a company with no domain", () => {
 		expect(await statusOf(id)).toBe(EnrichmentStatus.SKIPPED);
 	});
 
-	it("still leaves a keyless install's company pending for the sweep", async () => {
-		await writeContextDevKey(db, "");
+	it("still leaves an unconfigured install's company pending for the sweep", async () => {
+		clearBrightData();
 		const id = await domainlessCompany(EnrichmentStatus.PENDING);
 
 		const result = await runBrand({ companyId: id });

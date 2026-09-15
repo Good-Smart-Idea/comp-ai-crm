@@ -1,9 +1,9 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import {
-	CONTEXT_DEV_PEOPLE,
-	CONTEXT_DEV_SOURCE,
 	enabled,
+	MANAGED_PERSON_RESEARCH,
+	MANAGED_PERSON_RESEARCH_SOURCE,
 	unavailable,
 } from "../lib/capabilities";
 import { contactProfileSlug } from "../lib/crm";
@@ -17,8 +17,11 @@ export default defineTool({
 		contactId: z.string(),
 	}),
 	async execute({ contactId }) {
-		if (!(await enabled(CONTEXT_DEV_PEOPLE))) {
-			return { found: false as const, ...unavailable(CONTEXT_DEV_SOURCE) };
+		if (!(await enabled(MANAGED_PERSON_RESEARCH))) {
+			return {
+				found: false as const,
+				...unavailable(MANAGED_PERSON_RESEARCH_SOURCE),
+			};
 		}
 
 		const profileRef = await contactProfileSlug(contactId);

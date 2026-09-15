@@ -1,26 +1,23 @@
-import { CONTEXT_DEV_SIGNUP_URL } from "@crm/db/settings";
+import { Button } from "@crm/ui/components/button";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { requireMailboxAccess } from "@/lib/session";
-import { ResearchForm } from "./research-form";
 
-export const metadata: Metadata = {
-	title: "Company enrichment",
-};
-
+export const metadata: Metadata = { title: "Company research" };
 export const instant = false;
 
 export default async function ResearchKeyPage() {
 	await requireMailboxAccess();
-
 	return (
 		<AuthShell>
 			<AuthHeading
-				title="Company enrichment"
-				description="Connect Context now, or skip it and configure company enrichment later in Settings."
+				title="Company research"
+				description="Ada manages the Bright Data connector. You can use the CRM while company research is unavailable."
 			/>
-
-			<ResearchForm signupUrl={CONTEXT_DEV_SIGNUP_URL} />
+			<Button asChild>
+				<Link href="/onboarding">Continue</Link>
+			</Button>
 		</AuthShell>
 	);
 }

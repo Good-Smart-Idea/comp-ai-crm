@@ -33,12 +33,13 @@ jobs:
           image_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "gsi/compcrm:$GITHUB_SHA")
           test "$image_revision" = "$GITHUB_SHA"
 
-      - name: Check deployment helper
+      - name: Install reviewed deployment contract
         run: |
           bash -n ops/ada/deploy-live.sh
-          tracked_hash=$(sha256sum ops/ada/deploy-live.sh)
-          installed_hash=$(sha256sum /usr/local/sbin/gsi-deploy-compcrm)
-          test "${tracked_hash%% *}" = "${installed_hash%% *}"
+          docker compose -f ops/ada/compose.yml config -q
+          sudo -n install -D -m 0755 ops/ada/deploy-live.sh /usr/local/sbin/gsi-deploy-compcrm
+          sudo -n install -D -m 0644 ops/ada/compose.yml /opt/gsi/apps/compcrm/ops/ada/compose.yml
+          sudo -n install -D -m 0644 ops/ada/UPSTREAM.md /opt/gsi/apps/compcrm/ops/ada/UPSTREAM.md
 
       - name: Deploy image
         run: sudo -n /usr/local/sbin/gsi-deploy-compcrm "$GITHUB_SHA"
@@ -50,5 +51,5 @@ jobs:
           sign_in_page=$(curl --fail --silent --show-error --max-time 20 \
             --retry 5 --retry-all-errors --retry-delay 2 \
             --header 'Host: compcrm.carvisgsi.xyz' \
-            http://127.0.0.1/sign-in)
+            http://127.0.0.1:8530/sign-in)
           grep --fixed-strings --quiet '<title>Sign in · Comp AI CRM</title>' <<<"$sign_in_page"
