@@ -1485,15 +1485,6 @@ model Organization {
   members     Member[]
   invitations Invitation[]
   agentModel  WorkspaceAgentModel?
-  id                  String       @id
-  name                String
-  slug                String
-  logo                String?
-  createdAt           DateTime
-  metadata            String?
-  website             String?
-  members             Member[]
-  invitations         Invitation[]
   preauthorizations   WorkspacePreauthorization[]
 
   @@unique([slug])
