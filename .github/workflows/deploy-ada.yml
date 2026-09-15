@@ -36,7 +36,7 @@ jobs:
       - name: Install reviewed deployment contract
         run: |
           bash -n ops/ada/deploy-live.sh
-          docker compose -f ops/ada/compose.yml config -q
+          IMAGE="gsi/compcrm:$GITHUB_SHA" docker compose -f ops/ada/compose.yml config -q
           sudo -n install -D -m 0755 ops/ada/deploy-live.sh /usr/local/sbin/gsi-deploy-compcrm
           sudo -n install -D -m 0644 ops/ada/compose.yml /opt/gsi/apps/compcrm/ops/ada/compose.yml
           sudo -n install -D -m 0644 ops/ada/UPSTREAM.md /opt/gsi/apps/compcrm/ops/ada/UPSTREAM.md
