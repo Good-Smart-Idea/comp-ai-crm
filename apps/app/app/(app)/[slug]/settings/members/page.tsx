@@ -28,7 +28,7 @@ export default function MembersSettingsPage({
 				<PageShellHeading>
 					<PageShellTitle>Members</PageShellTitle>
 					<PageShellDescription>
-						Everyone who has access to your CRM.
+						People with access and verified sign-ins that can join.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
@@ -57,6 +57,7 @@ async function Members({
 		queryClient.prefetchQuery(
 			trpc.workspace.members.queryOptions(membersSearchParams.toInput(values)),
 		),
+		queryClient.prefetchQuery(trpc.workspace.preauthorizations.queryOptions()),
 	]);
 
 	return (

@@ -12,7 +12,6 @@ describe("isWorkspaceEmail", () => {
 			"lewis@acme.com",
 			"LEWIS@Acme.com",
 			"  lewis@acme.com  ",
-			"someone@mail.acme.com",
 		]) {
 			expect(isWorkspaceEmail(email)).toBe(true);
 		}
@@ -35,6 +34,7 @@ describe("isWorkspaceEmail", () => {
 			"a@acme.com.evil.com",
 			"a@notacme.com",
 			"a@acme.community",
+			"someone@mail.acme.com",
 			"a@evil.com?@acme.com".replace("?", ""),
 		]) {
 			expect(isWorkspaceEmail(email)).toBe(false);

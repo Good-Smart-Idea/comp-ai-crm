@@ -10,7 +10,7 @@ import { organization } from "better-auth/plugins/organization";
 import { API_KEY_EXPIRATION, API_KEY_HEADER, API_KEY_PREFIX } from "./api-keys";
 import { AUTH_COOKIE_PREFIX } from "./cookies";
 import { env } from "./env";
-import { ensureWorkspaceMembership } from "./organization";
+import { ensureWorkspaceMembershipForVerifiedSession } from "./organization";
 import {
 	GOOGLE_PROVIDER_ID,
 	MICROSOFT_PROVIDER_ID,
@@ -266,6 +266,12 @@ export const auth = betterAuth({
 						});
 					}
 
+					if (!user.emailVerified) {
+						throw new APIError("FORBIDDEN", {
+							message: "This CRM requires a verified sign-in email.",
+						});
+					}
+
 					if (!isWorkspaceEmail(user.email)) {
 						const domain = primaryWorkspaceDomain();
 						throw new APIError("FORBIDDEN", {
@@ -283,7 +289,11 @@ export const auth = betterAuth({
 		session: {
 			create: {
 				before: async (session) => {
-					const workspaceId = await ensureWorkspaceMembership(session.userId);
+					const workspaceId = await ensureWorkspaceMembershipForVerifiedSession(
+						{
+							userId: session.userId,
+						},
+					);
 
 					return {
 						data: { ...session, activeOrganizationId: workspaceId ?? null },

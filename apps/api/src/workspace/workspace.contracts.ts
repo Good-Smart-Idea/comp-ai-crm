@@ -26,8 +26,16 @@ export const setMemberRoleInput = z.object({
 	role: z.enum(WORKSPACE_ROLES),
 });
 
+export const preauthorizeMemberInput = z.object({
+	email: z.email().trim().toLowerCase(),
+	role: z.literal("member").default("member"),
+});
+
+export const preauthorizationIdInput = z.object({ id: z.string().min(1) });
+
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceInput>;
 export type SetMemberRoleInput = z.infer<typeof setMemberRoleInput>;
+export type PreauthorizeMemberInput = z.infer<typeof preauthorizeMemberInput>;
 
 export const workspaceOutput = z.object({
 	id: z.string(),
@@ -54,6 +62,17 @@ export const workspaceMemberOutput = z.object({
 });
 
 export type WorkspaceMember = z.infer<typeof workspaceMemberOutput>;
+
+export const workspacePreauthorizationOutput = z.object({
+	id: z.string(),
+	email: z.string(),
+	role: z.literal("member"),
+	createdAt: z.string(),
+});
+
+export type WorkspacePreauthorization = z.infer<
+	typeof workspacePreauthorizationOutput
+>;
 
 export const memberListOutput = z.object({
 	rows: z.array(workspaceMemberOutput),

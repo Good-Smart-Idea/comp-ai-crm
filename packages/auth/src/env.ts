@@ -79,4 +79,8 @@ export function isSlackConfigured(): boolean {
 	return env.slack !== undefined;
 }
 
+export function isTrustedOrigin(origin: string): boolean {
+	return env.trustedOrigins.includes(origin);
+}
+
 export { apiUrl, appUrl };

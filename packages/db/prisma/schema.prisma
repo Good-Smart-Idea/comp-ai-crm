@@ -1485,6 +1485,7 @@ model Organization {
   members     Member[]
   invitations Invitation[]
   agentModel  WorkspaceAgentModel?
+  preauthorizations   WorkspacePreauthorization[]
 
   @@unique([slug])
   @@map("organization")
@@ -1499,6 +1500,18 @@ model WorkspaceAgentModel {
   updatedAt          DateTime @updatedAt
 
   @@map("workspaceAgentModel")
+}
+model WorkspacePreauthorization {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String       @default("member")
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@map("workspacePreauthorization")
 }
 
 model WorkspaceProfile {
