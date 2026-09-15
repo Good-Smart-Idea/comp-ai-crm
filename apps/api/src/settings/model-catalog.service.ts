@@ -3,12 +3,8 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Cache } from "cache-manager";
 import { z } from "zod";
 
-const CATALOG_URL = "https://ai-gateway.vercel.sh/v1/models";
-
 const CATALOG_TTL_MS = 30 * 60_000;
-
 const CATALOG_KEY = "settings:model-catalog";
-
 const CATALOG_TIMEOUT_MS = 5_000;
 
 export interface CatalogModel {
@@ -17,49 +13,69 @@ export interface CatalogModel {
 	provider: string;
 	contextWindowTokens: number;
 	pricing: { input: number; output: number } | null;
+	source: string | null;
 }
 
-const gatewayRate = z
+const rate = z
 	.union([z.number(), z.string()])
-	.transform((value) => Number(value))
-	.refine((value) => Number.isFinite(value))
+	.transform(Number)
+	.refine(Number.isFinite)
 	.nullable()
 	.catch(null);
-
-const gatewayModel = z.object({
-	id: z.string(),
+const catalogModel = z.object({
+	id: z.string().trim().min(1),
 	name: z.string().catch(""),
+	provider: z.string().catch(""),
 	owned_by: z.string().catch(""),
-	type: z.string().catch(""),
-	tags: z.array(z.json()).catch([]),
-	context_window: z.number(),
-	pricing: z
-		.object({ input: gatewayRate, output: gatewayRate })
-		.nullable()
-		.catch(null),
+	type: z.string().catch("language"),
+	tags: z.array(z.string()).optional(),
+	context_window: z.number().positive().catch(128_000),
+	contextWindowTokens: z.number().positive().optional(),
+	pricing: z.object({ input: rate, output: rate }).nullable().catch(null),
+	source: z.string().trim().min(1).nullable().catch(null),
 });
 
-type GatewayModel = z.infer<typeof gatewayModel>;
+const catalogResponse = z.union([
+	z.object({ data: z.array(catalogModel) }),
+	z.object({ models: z.array(catalogModel) }),
+	z.array(catalogModel),
+]);
 
-const gatewayCatalog = z
-	.object({ data: z.array(z.json()).catch([]) })
-	.catch({ data: [] });
+type CatalogPayload =
+	| z.input<typeof catalogModel>[]
+	| { data: z.input<typeof catalogModel>[] }
+	| { models: z.input<typeof catalogModel>[] };
 
-function usable(model: GatewayModel): boolean {
-	return model.type === "language" && model.tags.includes("tool-use");
-}
-
-function toCatalogModel(model: GatewayModel): CatalogModel {
-	const input = model.pricing?.input ?? null;
-	const output = model.pricing?.output ?? null;
-
-	return {
-		id: model.id,
-		name: model.name || model.id,
-		provider: model.owned_by || (model.id.split("/")[0] ?? model.id),
-		contextWindowTokens: model.context_window,
-		pricing: input !== null && output !== null ? { input, output } : null,
-	};
+export function parseCatalog(value: CatalogPayload): CatalogModel[] | null {
+	const parsed = catalogResponse.safeParse(value);
+	if (!parsed.success) return null;
+	const entries = Array.isArray(parsed.data)
+		? parsed.data
+		: "data" in parsed.data
+			? parsed.data.data
+			: parsed.data.models;
+	const models = entries.flatMap((entry) => {
+		const model = catalogModel.safeParse(entry);
+		if (!model.success || model.data.type !== "language") return [];
+		if (model.data.tags && !model.data.tags.includes("tool-use")) return [];
+		const input = model.data.pricing?.input ?? null;
+		const output = model.data.pricing?.output ?? null;
+		return [
+			{
+				id: model.data.id,
+				name: model.data.name || model.data.id,
+				provider: model.data.provider || model.data.owned_by || "managed",
+				contextWindowTokens:
+					model.data.contextWindowTokens ?? model.data.context_window,
+				pricing: input !== null && output !== null ? { input, output } : null,
+				source: model.data.source,
+			},
+		];
+	});
+	return [...new Map(models.map((model) => [model.id, model])).values()].sort(
+		(a, b) =>
+			a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name),
+	);
 }
 
 @Injectable()
@@ -68,29 +84,42 @@ export class ModelCatalogService {
 
 	constructor(@Inject(CACHE_MANAGER) private readonly cache: Cache) {}
 
+	configured(): boolean {
+		return Boolean(
+			this.endpoint() && process.env.GSI_MODEL_GATEWAY_API_KEY?.trim(),
+		);
+	}
+
 	async models(): Promise<CatalogModel[] | null> {
+		if (!this.configured()) return null;
 		const cached = await this.cache.get<CatalogModel[]>(CATALOG_KEY);
 		if (cached) return cached;
-
 		const models = await this.fetchCatalog();
 		if (!models) return null;
-
 		await this.cache.set(CATALOG_KEY, models, CATALOG_TTL_MS);
 		return models;
 	}
 
 	async find(id: string): Promise<CatalogModel | null> {
-		const models = await this.models();
-		return models?.find((model) => model.id === id) ?? null;
+		return (await this.models())?.find((model) => model.id === id) ?? null;
+	}
+
+	private endpoint(): string | null {
+		const explicit = process.env.GSI_MODEL_CATALOG_URL?.trim();
+		if (explicit) return explicit;
+		const base = process.env.GSI_MODEL_GATEWAY_BASE_URL?.trim();
+		return base ? `${base.replace(/\/+$/, "")}/models` : null;
 	}
 
 	private async fetchCatalog(): Promise<CatalogModel[] | null> {
+		const url = this.endpoint();
+		const key = process.env.GSI_MODEL_GATEWAY_API_KEY?.trim();
+		if (!url || !key) return null;
 		try {
-			const response = await fetch(CATALOG_URL, {
-				headers: { accept: "application/json" },
+			const response = await fetch(url, {
+				headers: { accept: "application/json", authorization: `Bearer ${key}` },
 				signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
 			});
-
 			if (!response.ok) {
 				this.logger.warn({
 					message: "Model catalog request failed",
@@ -98,26 +127,16 @@ export class ModelCatalogService {
 				});
 				return null;
 			}
-
-			const body = gatewayCatalog.parse(await response.json());
-
-			const models = body.data.flatMap((entry) => {
-				const parsed = gatewayModel.safeParse(entry);
-				return parsed.success && usable(parsed.data)
-					? [toCatalogModel(parsed.data)]
-					: [];
-			});
-
-			models.sort(
-				(a, b) =>
-					a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name),
-			);
-
+			const payload = (await response.json()) as CatalogPayload;
+			const models = parseCatalog(payload);
+			if (!models) {
+				this.logger.warn({ message: "Model catalog response was invalid" });
+				return null;
+			}
 			this.logger.log({
 				message: "Model catalog loaded",
 				models: models.length,
 			});
-
 			return models;
 		} catch (error) {
 			this.logger.warn({

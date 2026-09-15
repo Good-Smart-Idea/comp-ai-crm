@@ -91,16 +91,6 @@ it after writing any `AgentTask`.
   health, so a task running under a session nobody recorded is visible.
 - **`AGENT_BRIDGE_SECRET` unset refuses rather than opens.**
 
-### `POST /internal/crm/verify-key`
-
-Probes a candidate Context key → `valid`/`invalid`/`unknown`. No session, no model, no
-task row; exists because the API may not call Context.
-
-- **The probe is free and chosen to be** — a free-provider address gets a `422` before
-  billable resolution. **Do not point it at a real domain**: ten credits per typo.
-- **`classifyKey` rejects on `401` and nothing else.**
-- **The candidate key, never the stored one.**
-
 ### Blank fields are filled on the dispatch tick
 
 `sweepBlankFacts` (`lib/blank-facts.ts`) applies every pending suggestion whose field is
@@ -215,16 +205,15 @@ states it in the session instructions, and gives tools a shared "not configured,
 retrying will not help" result — **checked before the research budget is charged**. A
 missing key removes a place to look. **Never an error, never throws.**
 
-**`capabilities()` is async** because the Context key is a row;
-`capabilitiesFrom()`/`markdownFor()` are the pure halves. `contextDevKey()` is the only
-resolver, and `lib/context-dev.ts` memoises its client on the key string.
+**`capabilities()` is async** because managed process configuration is read at runtime.
+`capabilitiesFrom()` and `markdownFor()` are the pure halves. `company-research.ts` owns
+Bright Data access and does not expose credentials.
 
 ## Budget and scheduling
 
 - `lib/focus.ts` — per-session budget in `defineState`; running out is a normal ending.
   **A unit is one metered vendor call, not one credit.** `spend(2)` is what a
-  billable lookup costs: a brand lookup is 10 Context credits, a person enrich is
-  20. Both charge 2, because the budget rations calls per contact and a session
+  billable lookup costs are normalized to two units. The budget rations calls per contact and a session
   with a budget of 4 must still be able to make two of them.
 - `lib/tasks.ts` — `claimDue` leases with `FOR UPDATE SKIP LOCKED`.
 - **`schedules/dispatch.ts` is the only schedule and decides nothing.** "Every N

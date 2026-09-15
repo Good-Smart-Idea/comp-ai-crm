@@ -27,11 +27,11 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
-import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
+import { agentModelOutput, modelCatalogOutput, setAgentModelInput, companyResearchProviderOutput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
-import { workspaceOutput, memberListInput, memberListOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput } from "../workspace/workspace.contracts";
+import { workspaceOutput, memberListInput, memberListOutput, workspacePreauthorizationOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput, preauthorizeMemberInput, preauthorizationIdInput } from "../workspace/workspace.contracts";
 import type { UsersRouter } from "../users/users.router";
 
 const appRouter = t.router({
@@ -620,13 +620,9 @@ const appRouter = t.router({
       .input(setAgentModelInput)
       .output(agentModelOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    researchKey: publicProcedure
-      .output(researchKeyOutput)
+    companyResearchProvider: publicProcedure
+      .output(companyResearchProviderOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    setResearchKey: publicProcedure
-      .input(setResearchKeyInput)
-      .output(researchKeyOutput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     archiveRetention: publicProcedure
       .output(archiveRetentionOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
@@ -742,6 +738,9 @@ const appRouter = t.router({
       .input(memberListInput)
       .output(memberListOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    preauthorizations: publicProcedure
+      .output(z.array(workspacePreauthorizationOutput))
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     update: publicProcedure
       .input(updateWorkspaceInput)
       .output(workspaceOutput)
@@ -749,6 +748,14 @@ const appRouter = t.router({
     setMemberRole: publicProcedure
       .input(setMemberRoleInput)
       .output(workspaceMemberOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    preauthorize: publicProcedure
+      .input(preauthorizeMemberInput)
+      .output(workspacePreauthorizationOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    revokePreauthorization: publicProcedure
+      .input(preauthorizationIdInput)
+      .output(z.object({ id: z.string() }))
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     })
 });

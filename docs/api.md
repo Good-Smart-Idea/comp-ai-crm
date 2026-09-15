@@ -45,8 +45,19 @@ here, what do we sell.
   has turned the plugin into tenancy plumbing.
 - **Signing in is the join; no invite flow.** `ensureWorkspaceMembership` runs in
   `databaseHooks.session.create.before` and **degrades, never throws** — a throw fails
-  the session create and locks everyone out. The plugin's `invitation` table is unused.
-- **First account is owner**, and the hook enrols pre-existing users, oldest first.
+  the session create and locks everyone out. The hook reads the authenticated `User`
+  row. Its email must be verified and match `ALLOWED_SIGN_IN` exactly. The plugin's
+  `invitation` table is unused.
+- **A preauthorization is pending data, not a User.** An owner or admin creates it for
+  one exact allow-listed email. It grants only the member role. The same transaction
+  creates membership and removes the pending row after that email first signs in with
+  verification.
+- **External identity integration resolves a real User first.** It calls
+  `ensureWorkspaceMembershipForVerifiedSession` with that user id. This boundary takes
+  no email, header, query, token, or workspace id.
+- **The primary owner is `at@goodsmartidea.com`; the Google fallback is
+  `goodsmartideamarketing@gmail.com`.** The hook gives Mihai the member role. It
+  never creates a User for any pending address.
 - **Permissions come from `@crm/auth`** — `canRenameWorkspace`, `canChangeRole`,
   `canConfigureSso`, `canManageCurrency` — enforced by the service *and* used to
   disable the UI control, so the button and the 403 cannot disagree.
@@ -67,20 +78,19 @@ here, what do we sell.
 
 ### Gates in `proxy.ts`
 
-Onboarding, then `/onboarding/research` for the Context key. Asked server-side every
-request.
+Onboarding is the only setup gate. The Context connector is optional and never runs
+from `proxy.ts`.
 
 - **`getSessionCookie()` decides signed-in**; pages still resolve the real session via
   `requireMailboxAccess()`.
-- **Nothing is cached in a cookie** — both facts revert on a database reset while a
-  year-long marker insists the gate passed. Cache in the API if cost ever matters.
-- **Both reads run concurrently**, but order decides which is *asked* — the research
-  read is never made while onboarding is open.
+- **Nothing is cached in a cookie** — workspace state reverts on a database reset.
+  Cache in the API if cost ever matters.
 - **An unreachable API fails open** (`unknown` lets the request through).
-- **`/sign-in`, `/grant-access`, `/eve` are ungated.** `/sign-in` is the only path a
-  stranger may read; `/` joins it only when `IS_MARKETING` is set.
-- **There is no way past the key gate but to answer** — Skip stranded installs, every
-  later company sitting `PENDING` with nothing saying so.
+- **`/sign-in`, `/grant-access`, and `/eve` are ungated.** `/sign-in` is the only
+  path a stranger may read; `/` joins it only when `IS_MARKETING` is set.
+- **`/onboarding/research` needs a session but does not gate completion.** It offers
+  Context setup and Skip for now. Settings keeps the connector available after
+  onboarding.
 
 ### The name is also the URL
 

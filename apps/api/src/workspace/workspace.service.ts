@@ -1,8 +1,11 @@
 import {
 	canChangeRole,
+	canManagePreauthorizations,
 	canRenameWorkspace,
 	ensureWorkspaceMembership,
+	isWorkspaceEmail,
 	isWorkspaceRole,
+	normalizeWorkspaceEmail,
 	WORKSPACE_ID,
 	type WorkspaceRole,
 	workspaceRoleOf,
@@ -29,10 +32,12 @@ import {
 } from "../trpc/list-input";
 import type {
 	MemberListInput,
+	PreauthorizeMemberInput,
 	SetMemberRoleInput,
 	UpdateWorkspaceInput,
 	Workspace,
 	WorkspaceMember,
+	WorkspacePreauthorization,
 } from "./workspace.contracts";
 
 const MEMBER_SELECT = {
@@ -146,6 +151,7 @@ export class WorkspaceService {
 		userId: string,
 		input: MemberListInput,
 	): Promise<ListResult<WorkspaceMember>> {
+		await this.assertWorkspaceMember(userId);
 		const where = this.buildWhere(input);
 		const { skip, take } = paginate(input);
 
@@ -170,6 +176,102 @@ export class WorkspaceService {
 			total,
 			facetCounts: { role: countsByKey(roles, "role") },
 		};
+	}
+
+	async preauthorizations(
+		userId: string,
+	): Promise<WorkspacePreauthorization[]> {
+		await this.assertWorkspaceMember(userId);
+		const rows = await this.db.workspacePreauthorization.findMany({
+			where: { organizationId: WORKSPACE_ID },
+			orderBy: { createdAt: "asc" },
+			select: { id: true, email: true, createdAt: true },
+		});
+
+		return rows.map((row) => this.toPreauthorization(row));
+	}
+
+	async preauthorize(
+		userId: string,
+		input: PreauthorizeMemberInput,
+	): Promise<WorkspacePreauthorization> {
+		const role = await workspaceRoleOf(userId);
+		if (!canManagePreauthorizations(role)) {
+			throw new ForbiddenException(
+				"Only an owner or an admin can preauthorize a member.",
+			);
+		}
+
+		const email = normalizeWorkspaceEmail(input.email);
+		if (!email || !isWorkspaceEmail(email)) {
+			throw new BadRequestException(
+				"That email is not on the exact sign-in allow-list.",
+			);
+		}
+
+		const preauthorization = await this.db.$transaction(async (tx) => {
+			await tx.$queryRaw<Array<{ id: string }>>`
+				SELECT id FROM "organization" WHERE id = ${WORKSPACE_ID} FOR UPDATE
+			`;
+
+			const member = await tx.member.findFirst({
+				where: {
+					organizationId: WORKSPACE_ID,
+					user: { email: { equals: email, mode: "insensitive" } },
+				},
+				select: { id: true },
+			});
+			if (member) {
+				throw new BadRequestException(
+					"That person is already a workspace member.",
+				);
+			}
+
+			return tx.workspacePreauthorization.upsert({
+				where: {
+					organizationId_email: { organizationId: WORKSPACE_ID, email },
+				},
+				create: { organizationId: WORKSPACE_ID, email, role: input.role },
+				update: {},
+				select: { id: true, email: true, createdAt: true },
+			});
+		});
+
+		this.logger.log({
+			message: "Workspace member preauthorized",
+			userId,
+			email,
+			role: input.role,
+		});
+
+		return this.toPreauthorization(preauthorization);
+	}
+
+	async revokePreauthorization(
+		userId: string,
+		preauthorizationId: string,
+	): Promise<{ id: string }> {
+		const role = await workspaceRoleOf(userId);
+		if (!canManagePreauthorizations(role)) {
+			throw new ForbiddenException(
+				"Only an owner or an admin can revoke a preauthorization.",
+			);
+		}
+
+		const removed = await this.db.workspacePreauthorization.deleteMany({
+			where: { id: preauthorizationId, organizationId: WORKSPACE_ID },
+		});
+		if (removed.count === 0) {
+			throw new NotFoundException("That preauthorization was not found.");
+		}
+
+		this.logger.log({
+			message: "Workspace preauthorization revoked",
+			userId,
+			preauthorizationId,
+		});
+
+		return { id: preauthorizationId };
 	}
 
 	async setMemberRole(
@@ -223,6 +325,31 @@ export class WorkspaceService {
 		});
 
 		return this.toMember(updated, userId);
+	}
+
+	private toPreauthorization(row: {
+		id: string;
+		email: string;
+		createdAt: Date;
+	}): WorkspacePreauthorization {
+		return {
+			id: row.id,
+			email: row.email,
+			role: "member",
+			createdAt: row.createdAt.toISOString(),
+		};
+	}
+
+	private async assertWorkspaceMember(userId: string): Promise<void> {
+		const member = await this.db.member.findUnique({
+			where: {
+				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+			},
+			select: { id: true },
+		});
+		if (!member) {
+			throw new ForbiddenException("No workspace membership was found.");
+		}
 	}
 
 	private toMember(row: MemberRow, userId: string): WorkspaceMember {

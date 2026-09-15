@@ -54,6 +54,7 @@ export class ConversationsService {
 		input: ConversationListInput,
 		userId: string,
 	): Promise<ConversationSummary[]> {
+		await this.assertWorkspaceMember(userId);
 		const recordId = this.recordId(input);
 		this.logger.debug({ message: "Conversation list read", recordId });
 
@@ -743,6 +744,7 @@ export class ConversationsService {
 		input: ConversationSaveInput,
 		userId: string,
 	): Promise<{ id: string }> {
+		await this.assertWorkspaceMember(userId);
 		const recordId = this.recordId(input);
 		const updateExisting = async (existing: {
 			id: string;
@@ -845,6 +847,7 @@ export class ConversationsService {
 	}
 
 	async events(input: ConversationEventsInput, userId: string) {
+		await this.assertWorkspaceMember(userId);
 		const conversation = await this.db.agentConversation.findUnique({
 			where: { id: input.id },
 			select: { kind: true, sessionId: true, userId: true },
@@ -886,6 +889,7 @@ export class ConversationsService {
 	}
 
 	async remove(id: string, userId: string): Promise<{ id: string }> {
+		await this.assertWorkspaceMember(userId);
 		const conversation = await this.db.agentConversation.findUnique({
 			where: { id },
 			select: {

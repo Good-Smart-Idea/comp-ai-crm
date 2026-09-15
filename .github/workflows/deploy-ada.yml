@@ -1,0 +1,57 @@
+name: Deploy Ada
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ada-live
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: build and deploy
+    runs-on: [self-hosted, Linux, X64, cc-ada]
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image
+        run: |
+          docker build \
+            --file ops/ada/Dockerfile \
+            --tag "gsi/compcrm:$GITHUB_SHA" \
+            --build-arg "REVISION=$GITHUB_SHA" \
+            --build-arg "API_URL=https://compcrm.carvisgsi.xyz" \
+            --build-arg "APP_URL=https://compcrm.carvisgsi.xyz" \
+            .
+          image_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "gsi/compcrm:$GITHUB_SHA")
+          test "$image_revision" = "$GITHUB_SHA"
+
+      - name: Install reviewed deployment contract
+        run: |
+          bash -n ops/ada/deploy-live.sh
+          printf "CRM_DB_PASSWORD=ci-only-validation\n" > ops/ada/.env
+          IMAGE="gsi/compcrm:$GITHUB_SHA" docker compose -f ops/ada/compose.yml config -q
+          rm -f ops/ada/.env
+          sudo -n install -D -m 0755 ops/ada/deploy-live.sh /usr/local/sbin/gsi-deploy-compcrm
+          sudo -n install -D -m 0644 ops/ada/compose.yml /opt/gsi/apps/compcrm/ops/ada/compose.yml
+          sudo -n install -D -m 0644 ops/ada/UPSTREAM.md /opt/gsi/apps/compcrm/ops/ada/UPSTREAM.md
+
+      - name: Deploy image
+        run: sudo -n /usr/local/sbin/gsi-deploy-compcrm "$GITHUB_SHA"
+
+      - name: Check live services
+        run: |
+          curl --fail --silent --show-error --max-time 20 --retry 5 --retry-all-errors --retry-delay 2 http://127.0.0.1:8531/health >/dev/null
+          curl --fail --silent --show-error --max-time 20 --retry 5 --retry-all-errors --retry-delay 2 http://127.0.0.1:8530/sign-in >/dev/null
+          sign_in_page=$(curl --fail --silent --show-error --max-time 20 \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            --header 'Host: compcrm.carvisgsi.xyz' \
+            http://127.0.0.1:8530/sign-in)
+          grep --fixed-strings --quiet '<title>Sign in · Comp AI CRM</title>' <<<"$sign_in_page"

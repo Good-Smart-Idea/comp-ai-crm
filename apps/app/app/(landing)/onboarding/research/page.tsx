@@ -1,25 +1,23 @@
+import { Button } from "@crm/ui/components/button";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { requireMailboxAccess } from "@/lib/session";
-import { ResearchForm } from "./research-form";
 
-export const metadata: Metadata = {
-	title: "Research key",
-};
-
+export const metadata: Metadata = { title: "Company research" };
 export const instant = false;
 
 export default async function ResearchKeyPage() {
 	await requireMailboxAccess();
-
 	return (
 		<AuthShell>
 			<AuthHeading
-				title="Level up your CRM data"
-				description="Power your research agent with Context to research every company added to your CRM."
+				title="Company research"
+				description="Ada manages the Bright Data connector. You can use the CRM while company research is unavailable."
 			/>
-
-			<ResearchForm />
+			<Button asChild>
+				<Link href="/onboarding">Continue</Link>
+			</Button>
 		</AuthShell>
 	);
 }

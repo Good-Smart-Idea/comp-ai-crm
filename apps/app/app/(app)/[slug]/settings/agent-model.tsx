@@ -35,6 +35,7 @@ type CatalogModel = {
 	provider: string;
 	contextWindowTokens: number;
 	pricing: { input: number; output: number } | null;
+	source: string | null;
 };
 
 const FOLLOW_DEFAULT = "__default__";
@@ -111,7 +112,8 @@ export function AgentModel() {
 			<CardHeader>
 				<CardTitle>Research agent</CardTitle>
 				<CardDescription>
-					The model the agent thinks with, routed through the Vercel AI Gateway.
+					The model the agent thinks with, routed through the managed GSI
+					gateway.
 				</CardDescription>
 			</CardHeader>
 
@@ -160,7 +162,10 @@ export function AgentModel() {
 												>
 													<span>{model.name}</span>
 													<span className="ml-auto text-muted-foreground text-xs">
-														{price ?? contextHint(model.contextWindowTokens)}
+														{model.source
+															? `${model.source} · ${price ?? contextHint(model.contextWindowTokens)}`
+															: (price ??
+																contextHint(model.contextWindowTokens))}
 													</span>
 												</CommandItem>
 											);
@@ -174,11 +179,11 @@ export function AgentModel() {
 
 				<p className="text-muted-foreground text-xs">
 					{unavailable
-						? `Could not reach the AI Gateway to list models. The agent is still running ${effectiveId}.`
+						? `Could not reach the managed catalog to list models. The agent is still running ${effectiveId}.`
 						: effective
 							? `${effectiveId} · ${contextHint(effective.contextWindowTokens)}${
 									priceHint(effective) ? ` · ${priceHint(effective)}` : ""
-								}`
+								}${effective.source ? ` · ${effective.source}` : ""}`
 							: effectiveId}
 				</p>
 			</CardContent>

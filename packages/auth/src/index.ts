@@ -12,18 +12,23 @@ export {
 	isGoogleConfigured,
 	isMicrosoftConfigured,
 	isSlackConfigured,
+	isTrustedOrigin,
 } from "./env";
 export {
 	canChangeRole,
 	canManageConnections,
 	canManageCurrency,
+	canManagePreauthorizations,
 	canManageTracking,
 	canRenameWorkspace,
 	DEFAULT_WORKSPACE_NAME,
+	DEFAULT_WORKSPACE_PREAUTHORIZATIONS,
 	ensureWorkspaceMembership,
+	ensureWorkspaceMembershipForVerifiedSession,
 	isWorkspaceAdmin,
 	isWorkspaceRole,
 	toWorkspaceRole,
+	type VerifiedWorkspaceSession,
 	WORKSPACE_ID,
 	WORKSPACE_ROLES,
 	type WorkspaceRole,
@@ -75,6 +80,7 @@ export {
 export {
 	hasSignInAllowList,
 	isWorkspaceEmail,
+	normalizeWorkspaceEmail,
 	primaryWorkspaceDomain,
 	workspaceDomains,
 } from "./workspace";

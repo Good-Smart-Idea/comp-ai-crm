@@ -6,11 +6,10 @@ import { restMeta } from "../trpc/openapi";
 import {
 	agentModelOutput,
 	archiveRetentionOutput,
+	companyResearchProviderOutput,
 	modelCatalogOutput,
-	researchKeyOutput,
 	setAgentModelInput,
 	setArchiveRetentionDaysInput,
-	setResearchKeyInput,
 } from "./settings.contracts";
 import { SettingsService } from "./settings.service";
 
@@ -47,20 +46,11 @@ export class SettingsRouter {
 	}
 
 	@Query({
-		output: researchKeyOutput,
-		meta: restMeta("GET", "/settings/research-key", ["Settings"]),
+		output: companyResearchProviderOutput,
+		meta: restMeta("GET", "/settings/company-research-provider", ["Settings"]),
 	})
-	async researchKey() {
-		return this.settings.researchKey();
-	}
-
-	@Mutation({
-		input: setResearchKeyInput,
-		output: researchKeyOutput,
-		meta: restMeta("PATCH", "/settings/research-key", ["Settings"]),
-	})
-	async setResearchKey(@Input() input: z.infer<typeof setResearchKeyInput>) {
-		return this.settings.setResearchKey(input.apiKey);
+	async companyResearchProvider() {
+		return this.settings.companyResearchProvider();
 	}
 
 	@Query({

@@ -1,5 +1,6 @@
 import { type Db, db } from "@crm/db";
 import { WORKSPACE_ID, workspaceSlug } from "@crm/db/workspace";
+import { isWorkspaceEmail, normalizeWorkspaceEmail } from "./workspace";
 
 export { WORKSPACE_ID };
 
@@ -7,7 +8,20 @@ export const DEFAULT_WORKSPACE_NAME = "CRM";
 
 export const WORKSPACE_ROLES = ["owner", "admin", "member"] as const;
 
+export const DEFAULT_WORKSPACE_PREAUTHORIZATIONS = [
+	{ email: "mihai@goodsmartidea.com", role: "member" },
+] as const;
+
+export const WORKSPACE_OWNER_EMAILS = [
+	"at@goodsmartidea.com",
+	"goodsmartideamarketing@gmail.com",
+] as const;
+
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
+
+export type VerifiedWorkspaceSession = {
+	userId: string;
+};
 
 export function isWorkspaceRole(value: string): value is WorkspaceRole {
 	return (WORKSPACE_ROLES as readonly string[]).includes(value);
@@ -25,6 +39,16 @@ export function canChangeRole(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
+export function canManagePreauthorizations(
+	role: WorkspaceRole | null,
+): boolean {
+	return isWorkspaceAdmin(role);
+}
+
+function isWorkspaceOwnerEmail(email: string): boolean {
+	return (WORKSPACE_OWNER_EMAILS as readonly string[]).includes(email);
+}
+
 export function canManageCurrency(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
@@ -40,8 +64,15 @@ export function canManageTracking(role: WorkspaceRole | null): boolean {
 export async function ensureWorkspaceMembership(
 	userId: string,
 ): Promise<string | undefined> {
+	return ensureWorkspaceMembershipForVerifiedSession({ userId });
+}
+
+export async function ensureWorkspaceMembershipForVerifiedSession(
+	session: VerifiedWorkspaceSession,
+): Promise<string | undefined> {
 	try {
 		return await db.$transaction(async (tx) => {
+			const userId = session.userId;
 			const workspace = await tx.organization.upsert({
 				where: { id: WORKSPACE_ID },
 				create: {
@@ -54,8 +85,11 @@ export async function ensureWorkspaceMembership(
 				select: { id: true, name: true, slug: true },
 			});
 
-			const slug = workspaceSlug(workspace.name);
+			await tx.$queryRaw<Array<{ id: string }>>`
+				SELECT id FROM "organization" WHERE id = ${workspace.id} FOR UPDATE
+			`;
 
+			const slug = workspaceSlug(workspace.name);
 			if (workspace.slug !== slug) {
 				await tx.organization.update({
 					where: { id: workspace.id },
@@ -66,44 +100,94 @@ export async function ensureWorkspaceMembership(
 			const enrolled = await tx.member.count({
 				where: { organizationId: workspace.id },
 			});
+			if (enrolled === 0) {
+				await tx.workspacePreauthorization.createMany({
+					data: DEFAULT_WORKSPACE_PREAUTHORIZATIONS.map((preauthorization) => ({
+						id: `workspace-preauthorization-${preauthorization.email.replace("@", "-").replaceAll(".", "-")}`,
+						organizationId: workspace.id,
+						email: preauthorization.email,
+						role: preauthorization.role,
+					})),
+					skipDuplicates: true,
+				});
+			}
+
+			const user = await tx.user.findUnique({
+				where: { id: userId },
+				select: { email: true, emailVerified: true },
+			});
+			const email = normalizeWorkspaceEmail(user?.email);
+			if (!user?.emailVerified || !email || !isWorkspaceEmail(email)) {
+				return undefined;
+			}
+
+			const preauthorizations = await tx.workspacePreauthorization.findMany({
+				where: { organizationId: workspace.id },
+				select: { id: true, email: true },
+			});
 
 			if (enrolled === 0) {
 				const existing = await tx.user.findMany({
-					select: { id: true },
+					where: { emailVerified: true },
+					select: { id: true, email: true },
 					orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 				});
+				const eligible = existing.filter((candidate) =>
+					isWorkspaceEmail(candidate.email),
+				);
+				const ownerEmail = WORKSPACE_OWNER_EMAILS.find((ownerEmail) =>
+					eligible.some(
+						(candidate) =>
+							normalizeWorkspaceEmail(candidate.email) === ownerEmail,
+					),
+				);
 
 				await tx.member.createMany({
-					data: existing.map((user, index) => ({
+					data: eligible.map((candidate) => ({
 						id: crypto.randomUUID(),
 						organizationId: workspace.id,
-						userId: user.id,
-						role: index === 0 ? "owner" : "member",
+						userId: candidate.id,
+						role:
+							normalizeWorkspaceEmail(candidate.email) === ownerEmail
+								? "owner"
+								: "member",
 						createdAt: new Date(),
 					})),
 					skipDuplicates: true,
 				});
 			}
 
-			await tx.member.upsert({
-				where: {
-					organizationId_userId: { organizationId: workspace.id, userId },
-				},
-				create: {
+			const ownerCount = await tx.member.count({
+				where: { organizationId: workspace.id, role: "owner" },
+			});
+			const preauthorization = preauthorizations.find(
+				(candidate) => candidate.email === email,
+			);
+			await tx.member.createMany({
+				data: {
 					id: crypto.randomUUID(),
 					organizationId: workspace.id,
 					userId,
-					role: "member",
+					role:
+						ownerCount === 0 && isWorkspaceOwnerEmail(email)
+							? "owner"
+							: "member",
 					createdAt: new Date(),
 				},
-				update: {},
+				skipDuplicates: true,
 			});
+
+			if (preauthorization) {
+				await tx.workspacePreauthorization.deleteMany({
+					where: { id: preauthorization.id },
+				});
+			}
 
 			return workspace.id;
 		});
 	} catch (error) {
 		console.error(
-			`[auth] could not enrol user ${userId} in workspace ${WORKSPACE_ID}; the next sign-in will retry`,
+			`[auth] could not enrol user ${session.userId} in workspace ${WORKSPACE_ID}; the next sign-in will retry`,
 			error,
 		);
 		return undefined;

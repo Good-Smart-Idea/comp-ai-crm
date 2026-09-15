@@ -124,6 +124,46 @@ export class EnvironmentVariables {
 	AGENT_BRIDGE_SECRET?: string;
 
 	@IsOptional()
+	@IsUrl({ require_tld: false, require_protocol: true })
+	GSI_MODEL_GATEWAY_BASE_URL?: string;
+
+	@IsOptional()
+	@IsString()
+	GSI_MODEL_GATEWAY_API_KEY?: string;
+
+	@IsOptional()
+	@IsUrl({ require_tld: false, require_protocol: true })
+	GSI_MODEL_CATALOG_URL?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_API_TOKEN?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_UNLOCKER_USER?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_UNLOCKER_PASS?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_UNLOCKER_ZONE?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_SERP_USER?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_SERP_PASS?: string;
+
+	@IsOptional()
+	@IsString()
+	BRIGHTDATA_SERP_ZONE?: string;
+
+	@IsOptional()
 	@IsString()
 	CRM_TELEMETRY_DISABLED?: string;
 }

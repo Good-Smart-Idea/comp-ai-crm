@@ -90,22 +90,21 @@ whose event never arrived, which cannot be recovered.
 | `node_version` | Major only, e.g. `22` |
 | `postgres_version` | Major only, e.g. `17` |
 | `members_bucket` | How many people work here, in bands |
-| `agent_model_id` | The model chosen on Settings → General, e.g. `zai/glm-5.2-fast` |
+| `agent_model_id` | The model chosen on Settings → General |
 | `agent_model_context_window` | Its context window in tokens |
 | `seed_only` | True when every contact came from `bun run db:seed` |
 
 #### Capabilities — booleans, never values
 
-`cap_perplexity`, `cap_context_dev`, `cap_blob`, `cap_github`, `cap_redis`,
-`cap_agent_bridge`, `cap_cron_secret`, `cap_ai_gateway`, `cap_google_oauth`, `cap_sso_provider`,
-`cap_tracking`, `is_marketing`.
+`cap_perplexity`, `cap_bright_data`, `cap_blob`, `cap_github`, `cap_redis`,
+`cap_agent_bridge`, `cap_cron_secret`, `cap_gsi_model_gateway`, `cap_google_oauth`,
+`cap_sso_provider`, `cap_tracking`, `is_marketing`.
 
-Each is only whether the key is set. `cap_context_dev` is whether an `AppSetting` row holds one,
-`cap_sso_provider` whether an `ssoProvider` row exists, `cap_tracking` whether a tracking site id
-has been minted — never the id itself. No key, value or last-four is sent.
+Each is only whether managed credentials are set. `cap_sso_provider` reports whether an
+`ssoProvider` row exists. `cap_tracking` reports whether a tracking site id exists. No key,
+value, or last-four is sent.
 
-`cap_context_dev` covers both of the agent's Context capabilities: company brand data by domain,
-and reading a person off a LinkedIn URL. They are one key, so they are one boolean.
+`cap_bright_data` covers managed company research from official company pages.
 
 #### The agent
 
@@ -294,7 +293,7 @@ default and the page has no field to type in.
 - `EmailThread` and `EmailMessage` subjects or bodies, `CalendarEvent` titles, `CalendarAttendee` rows
 - `Deal` names and amounts. Stage distribution is fine; amounts are not.
 - `AgentEvent.data`, `AgentConversation` content, prompts, completions, reasoning traces
-- `ALLOWED_SIGN_IN`, `AppSetting.contextDevApiKey`, any key, secret, token or connection string
+- `ALLOWED_SIGN_IN`, any key, secret, token or connection string
 - `SuppressedDomain` and `SuppressedContact` values — counts only
 - **IP address.** Set `$ip: null` and disable geoip. n8n collects IP and has to caveat their
   anonymity claim because of it. We do not need it and we would rather the claim be unqualified.

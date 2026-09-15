@@ -184,6 +184,7 @@ export class ConversationSharingService {
 	}
 
 	private async ownedBuilder(conversationId: string, userId: string) {
+		await this.assertWorkspaceMember(userId);
 		const conversation = await this.db.agentConversation.findFirst({
 			where: { id: conversationId, userId, kind: "BUILDER" },
 			select: { id: true },
@@ -201,6 +202,14 @@ export class ConversationSharingService {
 		conversationId: string,
 		userId: string,
 	): Promise<boolean> {
+		const membership = await tx.member.findUnique({
+			where: {
+				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+			},
+			select: { id: true },
+		});
+		if (!membership) return false;
+
 		const rows = await tx.$queryRaw<Array<{ id: string }>>`
 			SELECT id
 			FROM "agentConversation"

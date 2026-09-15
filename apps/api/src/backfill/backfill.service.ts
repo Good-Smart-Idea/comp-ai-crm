@@ -287,9 +287,8 @@ export class BackfillService implements OnModuleInit {
 	 * Contacts with a face to fetch and nowhere it has been put yet.
 	 *
 	 * Three doors qualify, matching the agent's chain: a LinkedIn URL, a GitHub
-	 * URL, or an employer with a website. The third is the expensive one — it
-	 * spends Context.dev credits reading the company's team page — and it is in
-	 * here because it works, which is the only reason worth having.
+	 * URL, or an employer with a website. The third reads the company's team
+	 * page through the managed company research provider.
 	 *
 	 * Which makes the exclusion below load-bearing rather than an optimisation.
 	 * Most people are not on their employer's team page and never will be, so

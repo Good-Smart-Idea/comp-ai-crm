@@ -19,7 +19,9 @@ const text = z.string().nullable().catch(null);
 const suffix = process.env.TEST_RUN_ID ?? "conversations-spec";
 const email = `conversation.subject.${suffix}@example.test`;
 const userId = `user-${suffix}`;
+const otherUserId = `other-user-${suffix}`;
 const memberId = `conversation-member-${suffix}`;
+const otherMemberId = `conversation-other-member-${suffix}`;
 
 let contactId: string;
 let service: ConversationsService;
@@ -34,8 +36,10 @@ beforeAll(async () => {
 		},
 	});
 	await db.agentConversation.deleteMany({ where: { userId } });
-	await db.member.deleteMany({ where: { id: memberId } });
-	await db.user.deleteMany({ where: { id: userId } });
+	await db.member.deleteMany({
+		where: { id: { in: [memberId, otherMemberId] } },
+	});
+	await db.user.deleteMany({ where: { id: { in: [userId, otherUserId] } } });
 	await db.contact.deleteMany({ where: { email } });
 	await db.organization.upsert({
 		where: { id: WORKSPACE_ID },
@@ -48,17 +52,33 @@ beforeAll(async () => {
 		},
 	});
 
-	await db.user.create({
-		data: { id: userId, name: "Test Rep", email: `${userId}@example.test` },
+	await db.user.createMany({
+		data: [
+			{ id: userId, name: "Test Rep", email: `${userId}@example.test` },
+			{
+				id: otherUserId,
+				name: "Other Test Rep",
+				email: `${otherUserId}@example.test`,
+			},
+		],
 	});
-	await db.member.create({
-		data: {
-			id: memberId,
-			organizationId: WORKSPACE_ID,
-			userId,
-			role: "member",
-			createdAt: new Date(),
-		},
+	await db.member.createMany({
+		data: [
+			{
+				id: memberId,
+				organizationId: WORKSPACE_ID,
+				userId,
+				role: "member",
+				createdAt: new Date(),
+			},
+			{
+				id: otherMemberId,
+				organizationId: WORKSPACE_ID,
+				userId: otherUserId,
+				role: "member",
+				createdAt: new Date(),
+			},
+		],
 	});
 	const contact = await db.contact.create({
 		data: { firstName: "Conversation", lastName: "Subject", email },
@@ -79,9 +99,13 @@ afterAll(async () => {
 		},
 	});
 	await db.contact.deleteMany({ where: { email } });
-	await db.agentConversation.deleteMany({ where: { userId } });
-	await db.member.deleteMany({ where: { id: memberId } });
-	await db.user.deleteMany({ where: { id: userId } });
+	await db.agentConversation.deleteMany({
+		where: { userId: { in: [userId, otherUserId] } },
+	});
+	await db.member.deleteMany({
+		where: { id: { in: [memberId, otherMemberId] } },
+	});
+	await db.user.deleteMany({ where: { id: { in: [userId, otherUserId] } } });
 });
 
 describe("ConversationsService", () => {
@@ -152,7 +176,7 @@ describe("ConversationsService", () => {
 	});
 
 	it("keeps one rep's conversations out of another's", async () => {
-		expect(await service.list({ contactId }, "somebody-else")).toEqual([]);
+		expect(await service.list({ contactId }, otherUserId)).toEqual([]);
 	});
 
 	it("refuses a conversation that belongs to a record of neither kind", async () => {
@@ -176,6 +200,26 @@ describe("ConversationsService", () => {
 		).toBe(false);
 	});
 
+	it("denies another member private builder reads and updates", async () => {
+		const conversation = await service.createBuilder(
+			{
+				clientRequestId: crypto.randomUUID(),
+				commandType: "CHAT",
+				message: "Private builder chat",
+				resources: [],
+				attachments: [],
+			},
+			userId,
+		);
+
+		await expect(
+			service.builderById(conversation.id, otherUserId),
+		).rejects.toThrow("No builder conversation");
+		await expect(
+			service.markRead(conversation.id, otherUserId),
+		).rejects.toThrow("No builder conversation");
+	});
+
 	it("does not mutate a conversation owned by another rep", async () => {
 		const sessionId = `ses_${suffix}_ownership`;
 		await service.save(
@@ -197,7 +241,7 @@ describe("ConversationsService", () => {
 					continuationToken: "attacker-token",
 					streamIndex: 99,
 				},
-				"somebody-else",
+				otherUserId,
 			);
 		} catch (error) {
 			ownershipError = error;
@@ -386,7 +430,7 @@ describe("ConversationsService", () => {
 
 		let removeError: unknown;
 		try {
-			await service.remove(conversation.id, "somebody-else");
+			await service.remove(conversation.id, otherUserId);
 		} catch (error) {
 			removeError = error;
 		}

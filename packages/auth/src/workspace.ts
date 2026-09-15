@@ -41,21 +41,27 @@ export function hasSignInAllowList(): boolean {
 	return domains.length > 0 || addresses.length > 0;
 }
 
-export function isWorkspaceEmail(email: string | null | undefined): boolean {
+export function normalizeWorkspaceEmail(
+	email: string | null | undefined,
+): string | undefined {
 	const value = email?.trim().toLowerCase();
-	if (!value) return false;
+	if (!value) return undefined;
 
 	const parts = value.split("@");
-	if (parts.length !== 2) return false;
+	if (parts.length !== 2) return undefined;
 
 	const [local, host] = parts;
-	if (!local || !host) return false;
+	return local && host ? value : undefined;
+}
+
+export function isWorkspaceEmail(email: string | null | undefined): boolean {
+	const value = normalizeWorkspaceEmail(email);
+	if (!value) return false;
+
+	const host = value.split("@")[1];
+	if (!host) return false;
 
 	const { domains, addresses } = allowList();
 
-	if (addresses.includes(value)) return true;
-
-	return domains.some(
-		(domain) => host === domain || host.endsWith(`.${domain}`),
-	);
+	return addresses.includes(value) || domains.includes(host);
 }

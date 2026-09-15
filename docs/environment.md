@@ -114,37 +114,33 @@ single place that knows what is set.
 | `PERPLEXITY_API_KEY` | Open-web research with citations; finds a LinkedIn slug |
 | `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
-| `AI_GATEWAY_API_KEY` | The model. Not needed on Vercel (OIDC) |
+| `BRIGHTDATA_API_TOKEN`, `BRIGHTDATA_UNLOCKER_USER/PASS/ZONE`, and `BRIGHTDATA_SERP_USER/PASS/ZONE` | Managed company and LinkedIn research |
+| `GSI_MODEL_GATEWAY_BASE_URL` + `GSI_MODEL_GATEWAY_API_KEY` | Managed OpenAI-compatible model gateway |
+| `GSI_MODEL_CATALOG_URL` | Governed model catalog with source and cost metadata |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`
 because the API and the seed write pictures too. The Next.js app is deliberately
 excluded — recognising our URL for the image optimizer needs no token.
 
-### The Context key is asked for, not configured
+### Managed company research
 
-**`CONTEXT_DEV_API_KEY` is not a variable here and must not become one.** The key lives
-in `AppSetting`, is asked for at `/onboarding/research`, and changes on Settings →
-General — an admin who cannot redeploy cannot set a variable.
+Ada injects Bright Data credentials into the API and agent processes. The browser has no
+credential field. Settings reports configured state without a paid scrape. Missing credentials
+leave company and LinkedIn research unavailable and do not block CRM use.
 
-- **It buys two places to look, not one.** Company brand data by domain, and a person
-  read back from a LinkedIn URL already on their record. Both capabilities in
-  `agent/lib/capabilities.ts` turn on and off with this one key.
-- **An install that had the variable is asked again**: no migration, no fallback, and
-  **the gate cannot be dismissed**.
-- **Nothing is lost while waiting.** A keyless `brand` task settles `SKIPPED` *before*
-  anything marks the row `RUNNING`, and `settle` only overwrites `RUNNING` — so the
-  company stays `PENDING`, which the sweep re-queues
-  (`test/keyless-brand.integration.spec.ts`).
-- **Saving the key runs the company sweep immediately** (fire-and-forget).
-- **`readContextDevKey` (`@crm/db/settings`) is the only reader**, read live with no
-  cache. An unreadable database is a capability that is off, not an exception.
-- **The key is never read back** — only whether one is set, and its last four.
-- **The agent checks it, not the API** (a vendor client in the API is a bug):
-  `settings.setResearchKey` calls `POST /internal/crm/verify-key` and writes unless the
-  answer is *invalid*. **`401` is the only answer meaning the key is wrong**, and **a
-  check that cannot be made is not a failed check** — `unknown` saves anyway and logs it
-  unverified.
+The agent uses Bright Data `/request` Bearer authentication with configurable zones. SERP
+uses a full search-engine URL with `brd_json=1`. The agent rejects private addresses,
+userinfo, unsafe redirects, and DNS rebinding. It bounds pages, bytes, retries, timeouts,
+concurrent work, and each research job.
+
+### Managed model routing
+
+Ada injects `GSI_MODEL_GATEWAY_BASE_URL`, `GSI_MODEL_GATEWAY_API_KEY`, and
+`GSI_MODEL_CATALOG_URL` into the agent processes. The catalog governs Ada Ollama,
+OpenRouter, OpenCode, Hugging Face, and approved Max-plan proxy routes. The catalog
+supplies the model source and cost metadata. A missing catalog preserves the local,
+no-spend default. Credentials are never shared between users or providers.
 
 ## Mailbox sync
 

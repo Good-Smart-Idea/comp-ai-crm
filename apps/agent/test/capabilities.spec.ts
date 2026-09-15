@@ -1,17 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
-	CONTEXT_DEV,
-	CONTEXT_DEV_PEOPLE,
-	CONTEXT_DEV_SOURCE,
+	BRIGHT_DATA_COMPANY_RESEARCH,
 	capabilitiesFrom,
 	enabled,
 	markdownFor,
 	unavailable,
 } from "../agent/lib/capabilities";
 
-const KEYS = ["PERPLEXITY_API_KEY", "BLOB_READ_WRITE_TOKEN"] as const;
-
+const KEYS = [
+	"PERPLEXITY_API_KEY",
+	"BLOB_READ_WRITE_TOKEN",
+	"BRIGHTDATA_API_TOKEN",
+	"BRIGHTDATA_UNLOCKER_USER",
+	"BRIGHTDATA_UNLOCKER_PASS",
+	"BRIGHTDATA_UNLOCKER_ZONE",
+	"BRIGHTDATA_SERP_USER",
+	"BRIGHTDATA_SERP_PASS",
+	"BRIGHTDATA_SERP_ZONE",
+] as const;
 const saved: Record<string, string | undefined> = {};
+
+function configure() {
+	for (const key of KEYS.slice(2)) process.env[key] = "test";
+}
 
 beforeEach(() => {
 	for (const key of KEYS) {
@@ -27,129 +38,40 @@ afterEach(() => {
 	}
 });
 
-describe("capabilities", () => {
-	it("reports everything off on a bare install", async () => {
-		expect(capabilitiesFrom(null).every((c) => !c.enabled)).toBe(true);
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
+describe("managed capabilities", () => {
+	it("keeps company research unavailable without managed credentials", () => {
+		expect(
+			capabilitiesFrom().find(
+				(capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH,
+			)?.enabled,
+		).toBe(false);
 	});
 
-	it("turns one on without turning on the others", async () => {
-		process.env.PERPLEXITY_API_KEY = "pplx-test";
-
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(true);
-		expect(await enabled("BLOB_READ_WRITE_TOKEN")).toBe(false);
+	it("enables Bright Data only when its managed credentials are complete", () => {
+		configure();
+		expect(
+			capabilitiesFrom().find(
+				(capability) => capability.id === BRIGHT_DATA_COMPANY_RESEARCH,
+			)?.enabled,
+		).toBe(true);
 	});
 
-	it("treats blank and whitespace as unset", async () => {
-		process.env.PERPLEXITY_API_KEY = "   ";
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
-	});
-
-	it("is read live, so a late-configured process is not stuck off", async () => {
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
-		process.env.PERPLEXITY_API_KEY = "key";
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(true);
-	});
-
-	it("is unknown for a variable that is not a capability", async () => {
+	it("does not turn an unrelated variable into a capability", async () => {
 		process.env.SOMETHING_ELSE = "x";
 		expect(await enabled("SOMETHING_ELSE")).toBe(false);
 		delete process.env.SOMETHING_ELSE;
 	});
-});
 
-describe("the Context key is a setting, never a variable", () => {
-	const contextDev = (stored: string | null) =>
-		capabilitiesFrom(stored).find((c) => c.id === CONTEXT_DEV);
-
-	it("is on when a key is stored", () => {
-		expect(contextDev("ctx-from-the-settings-page")?.enabled).toBe(true);
-	});
-
-	it("is off when nothing has been stored", () => {
-		expect(contextDev(null)?.enabled).toBe(false);
-	});
-
-	it("is not turned on by an environment variable", () => {
-		process.env.CONTEXT_DEV_API_KEY = "a-variable-nothing-reads";
-
-		expect(contextDev(null)?.enabled).toBe(false);
-
-		delete process.env.CONTEXT_DEV_API_KEY;
-	});
-
-	it("points at the settings page rather than a variable name", () => {
-		expect(contextDev(null)?.from).toBe("Settings → General");
-	});
-});
-
-describe("reading a person comes from the same Context key", () => {
-	const people = (stored: string | null) =>
-		capabilitiesFrom(stored).find((c) => c.id === CONTEXT_DEV_PEOPLE);
-
-	it("is on when a key is stored and off when it is not", () => {
-		expect(people("ctx")?.enabled).toBe(true);
-		expect(people(null)?.enabled).toBe(false);
-	});
-
-	it("points at the settings page rather than a variable name", () => {
-		expect(people(null)?.from).toBe("Settings → General");
-	});
-
-	it("turns on and off with the brand lookup, because it is one key", () => {
-		for (const stored of ["ctx", null]) {
-			expect(people(stored)?.enabled).toBe(
-				capabilitiesFrom(stored).find((c) => c.id === CONTEXT_DEV)?.enabled ===
-					true,
-			);
-		}
-	});
-});
-
-describe("the unavailable result", () => {
-	it("says retrying will not help", () => {
-		const result = unavailable(CONTEXT_DEV_SOURCE);
-
-		expect(result.ok).toBe(false);
-		expect(result.configured).toBe(false);
-		expect(result.reason).toContain("retrying will not help");
-		expect(result.reason).toContain(CONTEXT_DEV_SOURCE);
-	});
-});
-
-describe("the capability briefing", () => {
-	it("tells a bare install to work from the CRM alone", () => {
-		const markdown = markdownFor(capabilitiesFrom(null));
-
-		expect(markdown).toContain("No outside sources are configured");
-		expect(markdown).toContain("read_crm_history");
-	});
-
-	it("lists what is on and what is off, separately", () => {
-		const markdown = markdownFor(capabilitiesFrom("ctx"));
-
-		expect(markdown).toContain("Available:");
-		expect(markdown).toContain("LinkedIn");
-		expect(markdown).toContain("Not configured here");
-		expect(markdown).toContain("Web research");
-	});
-
-	it("counts a stored Context key as configured", () => {
-		process.env.PERPLEXITY_API_KEY = "key";
-
-		const markdown = markdownFor(capabilitiesFrom("ctx"));
-
-		expect(markdown).toContain("Company brand data");
-		expect(markdown.indexOf("Company brand data")).toBeLessThan(
-			markdown.indexOf("Not configured here"),
+	it("states that an unavailable provider must not be retried", () => {
+		expect(unavailable("Bright Data").reason).toContain(
+			"retrying will not help",
 		);
 	});
 
-	it("does not warn about missing sources when everything is on", () => {
-		for (const key of KEYS) process.env[key] = "key";
-
-		expect(markdownFor(capabilitiesFrom("ctx"))).not.toContain(
-			"Not configured here",
-		);
+	it("does not expose managed credentials in the capability briefing", () => {
+		configure();
+		const briefing = markdownFor(capabilitiesFrom());
+		expect(briefing).toContain("Company research");
+		expect(briefing).not.toContain("test");
 	});
 });

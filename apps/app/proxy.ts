@@ -5,7 +5,6 @@ import { isMarketing } from "@/lib/env";
 import {
 	ONBOARDING_PATH,
 	RESEARCH_PATH,
-	readResearchGate,
 	readWorkspaceGate,
 } from "@/lib/onboarding";
 import { workspaceUrl } from "@/lib/workspace-url";
@@ -35,27 +34,23 @@ export async function proxy(request: NextRequest) {
 			: NextResponse.redirect(new URL(SIGN_IN_PATH, request.nextUrl));
 	}
 
-	if (isUngated(pathname)) return NextResponse.next();
+	if (isUngated(pathname) || pathname === RESEARCH_PATH) {
+		return NextResponse.next();
+	}
 
-	// Both answers, every time, and concurrently — so the gate costs one round
-	// trip rather than two, and neither answer can be stale.
-	const [workspace, research] = await Promise.all([
-		readWorkspaceGate(request),
-		readResearchGate(request),
-	]);
+	const workspace = await readWorkspaceGate(request);
 
 	if (workspace.gate === "required") return sendTo(ONBOARDING_PATH, request);
-	if (research === "required") return sendTo(RESEARCH_PATH, request);
 
-	const settled = workspace.gate === "settled" && research === "settled";
-
-	if (!settled || !workspace.slug) return NextResponse.next();
+	if (workspace.gate !== "settled" || !workspace.slug) {
+		return NextResponse.next();
+	}
 
 	return sendTo(appPath(pathname, workspace.slug), request);
 }
 
 function appPath(pathname: string, slug: string): string {
-	if (pathname === LANDING_PATH || isSetup(pathname)) {
+	if (pathname === LANDING_PATH || pathname === ONBOARDING_PATH) {
 		return workspaceUrl(slug);
 	}
 
@@ -84,10 +79,6 @@ function isUngated(pathname: string): boolean {
 
 function isAnonymous(pathname: string): boolean {
 	return ANONYMOUS.some((prefix) => isUnder(pathname, prefix));
-}
-
-function isSetup(pathname: string): boolean {
-	return pathname === ONBOARDING_PATH || pathname === RESEARCH_PATH;
 }
 
 function sendTo(path: string, request: NextRequest): NextResponse {
