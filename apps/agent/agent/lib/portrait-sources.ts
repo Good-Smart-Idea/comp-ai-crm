@@ -38,6 +38,12 @@ export async function findPortrait(
 		};
 	}
 
+	if (subject.linkedinUrl) {
+		const charge = spend(1);
+		if (!charge.ok) return { found: false, tried, reason: charge.reason };
+		tried.push("LinkedIn profile images require managed research");
+	}
+
 	if (subject.companyDomain && subject.name && !researchReady) {
 		tried.push(
 			"Bright Data is not connected, so the company site was not read",

@@ -247,18 +247,11 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 						}),
 						signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
 					});
-					if (!response.ok) {
-						if (
-							response.status >= 400 &&
-							response.status < 500 &&
-							response.status !== 429
-						)
-							return {
-								outcome: "failed",
-								reason: `Bright Data answered ${response.status}.`,
-							};
-						continue;
-					}
+					if (!response.ok)
+						return {
+							outcome: "failed",
+							reason: `Bright Data answered ${response.status}.`,
+						};
 					const document = (
 						await limitedText(response, COMPANY_RESEARCH.request.maxBytes)
 					).trim();
@@ -354,12 +347,38 @@ export const companyResearch: CompanyResearchProvider =
 function safeTarget(value: string): URL | null {
 	try {
 		const url = new URL(value);
-		if (url.protocol !== "https:" || url.username || url.password || url.port)
+		const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+		if (
+			url.protocol !== "https:" ||
+			url.username ||
+			url.password ||
+			url.port ||
+			isBlockedHost(host)
+		)
 			return null;
 		return url;
 	} catch {
 		return null;
 	}
+}
+
+function isBlockedHost(host: string): boolean {
+	if (host === "localhost" || host.endsWith(".localhost")) return true;
+	if (host === "::1" || host.startsWith("fe80:")) return true;
+	if (host.startsWith("::ffff:7f") || host.startsWith("::ffff:127."))
+		return true;
+	const parts = host.split(".").map(Number);
+	if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part)))
+		return false;
+	const first = parts[0] ?? -1;
+	const second = parts[1] ?? -1;
+	return (
+		first === 10 ||
+		first === 127 ||
+		(first === 169 && second === 254) ||
+		(first === 172 && second >= 16 && second <= 31) ||
+		(first === 192 && second === 168)
+	);
 }
 
 function searchCandidates(value: JsonValue): string[] {

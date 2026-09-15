@@ -30,7 +30,23 @@ beforeAll(async () => {
 	});
 });
 
-beforeEach(clear);
+async function ensureWorkspace() {
+	await db.organization.upsert({
+		where: { id: WORKSPACE_ID },
+		create: {
+			id: WORKSPACE_ID,
+			name: "Test Workspace",
+			slug: "test",
+			createdAt: new Date(),
+		},
+		update: {},
+	});
+}
+
+beforeEach(async () => {
+	await ensureWorkspace();
+	await clear();
+});
 afterEach(clear);
 
 afterAll(async () => {
