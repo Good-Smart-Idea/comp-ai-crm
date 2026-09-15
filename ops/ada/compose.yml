@@ -51,7 +51,7 @@ services:
       AGENT_PORT: "2000"
     working_dir: /src
     command: bun run --filter=agent start
-    volumes: ["./data/eve:/src/apps/agent/.eve"]
+    volumes: ["/opt/gsi/apps/compcrm/data/eve:/src/apps/agent/.eve"]
     depends_on:
       postgres: { condition: service_healthy }
     healthcheck:
@@ -59,6 +59,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+      start_period: 45s
   postgres:
     image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
     restart: unless-stopped
@@ -66,7 +67,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${CRM_DB_PASSWORD}
       POSTGRES_DB: crm
-    volumes: ["./data/postgres:/var/lib/postgresql/data"]
+    volumes: ["/opt/gsi/apps/compcrm/data/postgres:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
       interval: 5s
