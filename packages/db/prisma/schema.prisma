@@ -1509,6 +1509,7 @@ model WorkspaceAgentModel {
   updatedAt          DateTime @updatedAt
 
   @@map("workspaceAgentModel")
+}
 model WorkspacePreauthorization {
   id             String       @id @default(cuid())
   organizationId String
