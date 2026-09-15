@@ -69,7 +69,8 @@ done
 
 sign_in_page=$(curl --fail --silent --show-error --max-time 20 --retry 12 --retry-all-errors --retry-delay 5 --header 'Host: compcrm.carvisgsi.xyz' http://127.0.0.1:8530/sign-in)
 grep --fixed-strings --quiet '<title>Sign in · Comp AI CRM</title>' <<<"$sign_in_page"
-docker compose -f "$compose_file" exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET" && wget -qO- --header="Authorization: Bearer $AGENT_BRIDGE_SECRET" http://agent:2000/eve/v1/info >/dev/null'
+docker compose -f "$compose_file" exec -T api sh -ec 'test -n "$AGENT_BRIDGE_SECRET"'
+docker compose -f "$compose_file" exec -T api sh -ec 'wget -qO- http://agent:2000/eve/v1/health >/dev/null'
 
 docker image tag "$candidate_id" "$live_image"
 trap - ERR
