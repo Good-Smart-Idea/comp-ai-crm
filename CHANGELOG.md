@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.16.0](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.15.3...v1.16.0) (2026-09-15)
+
+
+### Features
+
+* add workspace member preauthorization ([#2](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/2)) ([7c42d90](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/7c42d90e75474e02a3a65a6fdd62a8505f989f99))
+* make Context enrichment optional and deploy on Ada (CTRL-50) ([56fd648](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/56fd648915573a1b4b0cc1c9316f8987090b737c))
+* route research through Bright Data and Hermes ([#3](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/3)) ([4b7b608](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/4b7b608f171af9760dd1f92d80f952d62e1eb027))
+
+
+### Fixes
+
+* **deploy:** bridge smoke check uses eve health probe, not raw-secret JWT (CTRL-81) ([#8](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/8)) ([bc04d14](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/bc04d14fe29cd6a98efbe60e972044532bed8f89))
+* **deploy:** bump Ada Dockerfile to node:24-trixie (eve requires Node &gt;=24) ([#4](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/4)) ([d7f1a3c](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/d7f1a3c0aafc498b5482a456ee456fc7ef2b3c63))
+* **deploy:** canonical data volumes + agent healthcheck start_period (CTRL-81) ([#7](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/7)) ([8c5ce02](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/8c5ce02aafc89e5b23a208524b154cac30ddd081))
+* **deploy:** set IMAGE for compose contract validation (CTRL-81 follow-up) ([#5](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/5)) ([a374409](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/a374409ad0ee0278738cd9a7ba6a40e1a76915a7))
+* **deploy:** stub ops/ada/.env for compose contract validation in CI ([#6](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/6)) ([0c510b3](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/0c510b31f9d19e8aacde97edac8a019f7581a825))
+
 ## [1.15.3](https://github.com/trycompai/crm/compare/v1.15.2...v1.15.3) (2026-08-21)
 
 
