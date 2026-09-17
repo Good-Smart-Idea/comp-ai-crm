@@ -26,3 +26,29 @@ exists. Once the tag above is bootstrapped, the next `agent api app` recreate
 will collide on that port and fail partway through — after `agent`/`api` are
 already replaced. Reconcile the port (move the gate or add its sidecar to this
 compose file) before relying on the automated pipeline again.
+
+## Confirmed, 2026-09-17: the collision above is reproducible, and recovery lands on a stale image
+
+Ran `gsi-deploy-compcrm` twice after bootstrapping the `live` tag. Both runs
+failed exactly as predicted: `agent` and `postgres` recreate onto
+`ops/ada/compose.yml`, then `api`/`app`/`compcrm-sso-gate-1` (all three, not
+just the gate) collide and error with `No such container`, and the rollback
+path itself partially fails the same way — one run left `compcrm-app-1`
+deleted with nothing running on :8530 until it was brought back by hand.
+
+There is a second compose stack at `/opt/gsi/apps/compcrm/compose.yml` +
+`compose.override.yml` (project name also `compcrm`, so same container names)
+that predates the `agent` service split — no `AGENT_URL`, image hardcoded to
+`gsi/compcrm:v1.15.3-local` (`56fd648`, 2026-09-14). Whatever last brings
+`api`/`app`/`compcrm-sso-gate-1` back after a failed `ops/ada` recreate reads
+*that* stack, because it is the only one that still knows how to start the
+gate. The site ends up served, but by the older image, with `api`/`app` unable
+to reach the `agent` container at all (`AGENT_URL` empty in that stack) — the
+chat / research surface is silently disconnected even though every container
+reports healthy.
+
+Do not run `gsi-deploy-compcrm` again until the gate is reconciled into
+`ops/ada/compose.yml` (or the legacy `compose.yml`/`compose.override.yml` pair
+is retired) — a third run will very likely reproduce the same partial-failure
+window, and each one costs a live outage window on `app` while it is
+recovered by hand.
