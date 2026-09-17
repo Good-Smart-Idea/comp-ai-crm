@@ -96,10 +96,15 @@ function routeRest(req: IncomingMessage, res: ServerResponse, cookies?: string) 
 	});
 }
 
+function parseAccessEmailHeader(raw: string | string[] | undefined): string {
+	if (typeof raw !== "string") return "";
+	const trimmed = raw.trim();
+	return trimmed ? trimmed.toLowerCase() : "";
+}
+
 const server = http.createServer(async (req, res) => {
 	try {
-		const raw = req.headers[HEADER];
-		const email = typeof raw === "string" && raw.trim() ? raw.trim().toLowerCase() : "";
+		const email = parseAccessEmailHeader(req.headers[HEADER]);
 		delete (req.headers as any)[HEADER];
 		if (!email) {
 			if (REST_PATH_RE.test(req.url ?? "")) {
