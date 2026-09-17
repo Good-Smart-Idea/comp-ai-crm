@@ -31,7 +31,7 @@ candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
 candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate_image")
 [[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
 if ! previous_id=$(docker image inspect --format '{{.Id}}' "$live_image" 2>/dev/null); then
-	running_id=$(docker compose -f "$compose_file" ps -q api 2>/dev/null || true)
+	running_id=$(docker ps -q --filter label=com.docker.compose.project=compcrm --filter label=com.docker.compose.service=api | head -n1)
 	[[ -n $running_id ]] || fail "Live image $live_image does not exist and no running api container to bootstrap it from."
 	previous_id=$(docker inspect --format '{{.Image}}' "$running_id")
 	docker image tag "$previous_id" "$live_image"
