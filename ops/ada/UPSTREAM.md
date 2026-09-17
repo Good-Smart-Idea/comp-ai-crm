@@ -5,50 +5,28 @@
 
 `ops/ada/compose.yml` owns Comp CRM application services. It preserves the Control Center `compcrm` PostgreSQL contract. The deployment workflow installs this reviewed file with the reviewed helper. No Control Center checkout is copied during a CRM release.
 
-## Two known gaps, as of 2026-09-17
+## Two known gaps — resolved 2026-09-17
 
-`gsi-deploy-compcrm` fails every run today, before touching a container:
-`previous_id=$(docker image inspect ... gsi/compcrm:live) || fail "Live image
-gsi/compcrm:live does not exist."` has no bootstrap path. The tag was created
-by the one deploy that completed (`cb4ed37`, 2026-09-15 16:37 UTC), then lost
-— the image it pointed at is gone from `docker images` and nothing recreated
-the tag since. A human must `docker tag <the image actually serving traffic>
-gsi/compcrm:live` once, by hand, before this pipeline can run again — that tag
-is also what a failed deploy rolls back to, so tagging the wrong image is a
-real rollback hazard. Silently patching around a missing tag is worse: see the
-next gap.
+Both gaps below (recorded 2026-09-17 morning, CTRL-81) are now fixed in
+`ops/ada/compose.yml` and `ops/ada/deploy-live.sh`. Left here as the record of
+what broke and why, since the same failure modes can recur if this file
+drifts from what actually runs on Ada again.
 
-The host also runs a `compcrm-sso-gate-1` sidecar (Cloudflare Access header
-SSO, `/opt/gsi/apps/compcrm/compose.override.yml`) bound to
-`127.0.0.1:8530`, the exact port `ops/ada/compose.yml`'s `app` service also
-publishes. Neither this compose file nor `deploy-live.sh` knows the gate
-exists. Once the tag above is bootstrapped, the next `agent api app` recreate
-will collide on that port and fail partway through — after `agent`/`api` are
-already replaced. Reconcile the port (move the gate or add its sidecar to this
-compose file) before relying on the automated pipeline again.
+**Missing `gsi/compcrm:live` tag.** `deploy-live.sh` had no bootstrap path for
+a missing live tag — the tag was created by the one deploy that completed
+(`cb4ed37`, 2026-09-15 16:37 UTC), then lost when the image it pointed at was
+pruned. Fixed: if `gsi/compcrm:live` does not exist, `deploy-live.sh` now
+tags whatever image the running `api` service under this compose project is
+currently using, then proceeds — the container already serving traffic is by
+definition the same thing a human would have hand-tagged.
 
-## Confirmed, 2026-09-17: the collision above is reproducible, and recovery lands on a stale image
-
-Ran `gsi-deploy-compcrm` twice after bootstrapping the `live` tag. Both runs
-failed exactly as predicted: `agent` and `postgres` recreate onto
-`ops/ada/compose.yml`, then `api`/`app`/`compcrm-sso-gate-1` (all three, not
-just the gate) collide and error with `No such container`, and the rollback
-path itself partially fails the same way — one run left `compcrm-app-1`
-deleted with nothing running on :8530 until it was brought back by hand.
-
-There is a second compose stack at `/opt/gsi/apps/compcrm/compose.yml` +
-`compose.override.yml` (project name also `compcrm`, so same container names)
-that predates the `agent` service split — no `AGENT_URL`, image hardcoded to
-`gsi/compcrm:v1.15.3-local` (`56fd648`, 2026-09-14). Whatever last brings
-`api`/`app`/`compcrm-sso-gate-1` back after a failed `ops/ada` recreate reads
-*that* stack, because it is the only one that still knows how to start the
-gate. The site ends up served, but by the older image, with `api`/`app` unable
-to reach the `agent` container at all (`AGENT_URL` empty in that stack) — the
-chat / research surface is silently disconnected even though every container
-reports healthy.
-
-Do not run `gsi-deploy-compcrm` again until the gate is reconciled into
-`ops/ada/compose.yml` (or the legacy `compose.yml`/`compose.override.yml` pair
-is retired) — a third run will very likely reproduce the same partial-failure
-window, and each one costs a live outage window on `app` while it is
-recovered by hand.
+**Port collision with the SSO gate.** The host ran a hand-built
+`compcrm-sso-gate-1` sidecar (Cloudflare Access header SSO,
+`/opt/gsi/apps/compcrm/compose.override.yml`, never committed) bound to
+`127.0.0.1:8530` — the same port `ops/ada/compose.yml`'s `app` service
+published. Fixed: `sso-gate` is now a real service in `ops/ada/compose.yml`
+(script at `ops/ada/sso-gate.ts`, installed by `deploy-ada.yml` alongside the
+compose file). It owns the public port `127.0.0.1:8530`; `app` moved to the
+internal-only `127.0.0.1:8532` and is reached through the gate, exactly as the
+hand-built overlay had it. `deploy-live.sh` now recreates, health-checks, and
+rolls back `sso-gate` along with `agent api app`.

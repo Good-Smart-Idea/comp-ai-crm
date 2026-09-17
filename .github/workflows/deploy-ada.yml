@@ -42,6 +42,7 @@ jobs:
           sudo -n install -D -m 0755 ops/ada/deploy-live.sh /usr/local/sbin/gsi-deploy-compcrm
           sudo -n install -D -m 0644 ops/ada/compose.yml /opt/gsi/apps/compcrm/ops/ada/compose.yml
           sudo -n install -D -m 0644 ops/ada/UPSTREAM.md /opt/gsi/apps/compcrm/ops/ada/UPSTREAM.md
+          sudo -n install -D -m 0644 ops/ada/sso-gate.ts /opt/gsi/apps/compcrm/ops/ada/sso-gate.ts
 
       - name: Deploy image
         run: sudo -n /usr/local/sbin/gsi-deploy-compcrm "$GITHUB_SHA"
