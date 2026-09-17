@@ -4,7 +4,9 @@
 	"categories": {
 		"correctness": "off"
 	},
-	"jsPlugins": ["./tools/oxlint/anti-slop/index.ts"],
+	"jsPlugins": [
+		"./tools/oxlint/anti-slop/index.ts"
+	],
 	"ignorePatterns": [
 		"**/node_modules/**",
 		"**/dist/**",
@@ -45,7 +47,9 @@
 			}
 		},
 		{
-			"files": ["packages/validation/src/**"],
+			"files": [
+				"packages/validation/src/**"
+			],
 			"rules": {
 				"anti-slop/no-unknown-parameters": "off"
 			}
@@ -62,6 +66,14 @@
 			"rules": {
 				"anti-slop/no-unsafe-dictionary-type": "off",
 				"anti-slop/no-unknown-parameters": "off",
+				"anti-slop/no-runtime-typeof": "off"
+			}
+		},
+		{
+			"files": [
+				"ops/ada/**"
+			],
+			"rules": {
 				"anti-slop/no-runtime-typeof": "off"
 			}
 		}
