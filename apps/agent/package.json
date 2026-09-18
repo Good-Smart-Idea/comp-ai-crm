@@ -20,6 +20,7 @@
 	},
 	"dependencies": {
 		"@ai-sdk/openai": "^3.0.37",
+		"@brightdata/sdk": "^1.2.0",
 		"@crm/db": "workspace:*",
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",
