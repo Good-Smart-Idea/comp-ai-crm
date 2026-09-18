@@ -146,7 +146,6 @@ export class RollupService {
 			postgres_version: postgres,
 			members_bucket: bucket(members),
 
-			cap_perplexity: isSet("PERPLEXITY_API_KEY"),
 			cap_bright_data: isSet("BRIGHTDATA_API_TOKEN"),
 			cap_blob: isSet("BLOB_READ_WRITE_TOKEN"),
 			cap_github: isSet("GITHUB_TOKEN"),

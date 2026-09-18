@@ -111,10 +111,9 @@ single place that knows what is set.
 
 | Variable | What it adds |
 | --- | --- |
-| `PERPLEXITY_API_KEY` | Open-web research with citations; finds a LinkedIn slug |
 | `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
-| `BRIGHTDATA_API_TOKEN`, `BRIGHTDATA_UNLOCKER_USER/PASS/ZONE`, and `BRIGHTDATA_SERP_USER/PASS/ZONE` | Managed company and LinkedIn research |
+| `BRIGHTDATA_API_TOKEN`, `BRIGHTDATA_UNLOCKER_USER/PASS/ZONE`, and `BRIGHTDATA_SERP_USER/PASS/ZONE` | Managed company, person, and open-web research (never Perplexity, never BD_CLAUDE_PROXY) |
 | `GSI_MODEL_GATEWAY_BASE_URL` + `GSI_MODEL_GATEWAY_API_KEY` | Managed OpenAI-compatible model gateway |
 | `GSI_MODEL_CATALOG_URL` | Governed model catalog with source and cost metadata |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
