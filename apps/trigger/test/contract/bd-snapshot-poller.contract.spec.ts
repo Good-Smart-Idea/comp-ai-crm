@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { z } from "zod";
 import { pollBrightDataSnapshot } from "../../src/triggers/bd-snapshot-poller";
+
+const triggerResponseSchema = z.object({
+	snapshot_id: z.string().min(1),
+});
 
 /**
  * Real, live Bright Data contract test for CTRL-161. Requires
@@ -40,10 +45,9 @@ describe("Bright Data snapshot poller (live contract)", () => {
 			);
 			expect(triggerRes.ok).toBe(true);
 
-			const { snapshot_id: snapshotId } = (await triggerRes.json()) as {
-				snapshot_id: string;
-			};
-			expect(typeof snapshotId).toBe("string");
+			const { snapshot_id: snapshotId } = triggerResponseSchema.parse(
+				await triggerRes.json(),
+			);
 			expect(snapshotId.length).toBeGreaterThan(0);
 
 			const result = await pollBrightDataSnapshot(snapshotId);
