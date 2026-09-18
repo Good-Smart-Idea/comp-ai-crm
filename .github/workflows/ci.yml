@@ -20,7 +20,7 @@ env:
 jobs:
   check:
     name: check-types, lint, test
-    runs-on: [self-hosted, Linux, X64, gsi-ada]
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     container:
       image: node:22-trixie
