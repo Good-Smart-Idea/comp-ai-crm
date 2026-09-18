@@ -30,7 +30,13 @@ docker image inspect "$candidate_image" >/dev/null || fail "Candidate image $can
 candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
 candidate_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$candidate_image")
 [[ $candidate_revision == "$sha" ]] || fail "Image revision label does not match $sha."
-previous_id=$(docker image inspect --format '{{.Id}}' "$live_image") || fail "Live image $live_image does not exist."
+if ! previous_id=$(docker image inspect --format '{{.Id}}' "$live_image" 2>/dev/null); then
+	running_id=$(docker ps -q --filter label=com.docker.compose.project=compcrm --filter label=com.docker.compose.service=api | head -n1)
+	[[ -n $running_id ]] || fail "Live image $live_image does not exist and no running api container to bootstrap it from."
+	previous_id=$(docker inspect --format '{{.Image}}' "$running_id")
+	docker image tag "$previous_id" "$live_image"
+	printf '%s\n' "Bootstrapped missing $live_image tag from the running api container." >&2
+fi
 
 export IMAGE=$candidate_image
 cd "$app_dir"
@@ -45,16 +51,16 @@ rollback() {
 		printf '%s\n' "Deployment smoke test failed. Restoring the previous image." >&2
 		docker image tag "$previous_id" "$live_image"
 		export IMAGE=$live_image
-		docker compose -f "$compose_file" up -d --no-build --force-recreate agent api app
+		docker compose -f "$compose_file" up -d --no-build --force-recreate agent api app sso-gate
 	fi
 	exit "$status"
 }
 trap rollback ERR
 
 deploy_started=true
-docker compose -f "$compose_file" up -d --no-build --force-recreate agent api app
+docker compose -f "$compose_file" up -d --no-build --force-recreate agent api app sso-gate
 
-for service in agent api app; do
+for service in agent api app sso-gate; do
 	container_id=$(docker compose -f "$compose_file" ps -q "$service")
 	[[ -n $container_id ]]
 	for _ in $(seq 1 24); do
