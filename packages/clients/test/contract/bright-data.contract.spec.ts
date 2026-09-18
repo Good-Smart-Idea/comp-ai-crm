@@ -44,7 +44,7 @@ describe("BrightDataClient contract (live)", () => {
 			} else {
 				// Error response is typed
 				expect(["unauthorized", "bad_response"]).toContain(result.error.code);
-				expect(typeof result.error.retryable).toBe("boolean");
+				expect([true, false]).toContain(result.error.retryable);
 			}
 		},
 		45_000,
