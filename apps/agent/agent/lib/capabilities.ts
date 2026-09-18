@@ -1,11 +1,16 @@
 import "@crm/env/load";
 
 import { companyResearch } from "./company-research";
+import { webResearchEnabled } from "./web-research";
 
 export const BRIGHT_DATA_COMPANY_RESEARCH = "BRIGHT_DATA_COMPANY_RESEARCH";
 
 export const BRIGHT_DATA_COMPANY_RESEARCH_SOURCE =
 	"Bright Data managed connector";
+
+export const BRIGHT_DATA_WEB_RESEARCH = "BRIGHT_DATA_WEB_RESEARCH";
+
+export const BRIGHT_DATA_WEB_RESEARCH_SOURCE = "Bright Data managed connector";
 
 export const MANAGED_PERSON_RESEARCH = "MANAGED_PERSON_RESEARCH";
 
@@ -33,10 +38,12 @@ export function capabilitiesFrom(): readonly Capability[] {
 
 	return [
 		{
-			...fromEnv("PERPLEXITY_API_KEY"),
+			id: BRIGHT_DATA_WEB_RESEARCH,
+			from: "Ada managed connector",
 			label: "Web research",
 			gives:
-				"open-web context with citations, and the search that finds a LinkedIn slug in the first place",
+				"open-web context with citations, and the search that finds a LinkedIn slug in the first place, via the Bright Data escalation ladder",
+			enabled: webResearchEnabled(),
 		},
 		{
 			id: BRIGHT_DATA_COMPANY_RESEARCH,

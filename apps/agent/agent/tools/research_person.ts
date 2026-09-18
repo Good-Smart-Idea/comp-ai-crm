@@ -1,8 +1,13 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { enabled, unavailable } from "../lib/capabilities";
+import {
+	BRIGHT_DATA_WEB_RESEARCH,
+	BRIGHT_DATA_WEB_RESEARCH_SOURCE,
+	enabled,
+	unavailable,
+} from "../lib/capabilities";
 import { spend } from "../lib/focus";
-import { ask } from "../lib/perplexity";
+import { ask } from "../lib/web-research";
 
 export default defineTool({
 	description:
@@ -19,19 +24,13 @@ export default defineTool({
 			.describe("Reason over more sources. Slower, better for prep briefs."),
 	}),
 	async execute({ question, deep }) {
-		if (!(await enabled("PERPLEXITY_API_KEY")))
-			return unavailable("PERPLEXITY_API_KEY");
+		if (!(await enabled(BRIGHT_DATA_WEB_RESEARCH)))
+			return unavailable(BRIGHT_DATA_WEB_RESEARCH_SOURCE);
 
 		const charge = spend(deep ? 2 : 1);
 		if (!charge.ok) return { ok: false as const, reason: charge.reason };
 
-		const answer = await ask(question, {
-			model: deep ? "sonar-pro" : "sonar",
-			system:
-				"You are researching for a B2B sales rep. Be specific and factual. " +
-				"State only what your sources support, prefer recent information, and " +
-				"say plainly when you do not know. Never speculate about a person.",
-		});
+		const answer = await ask(question);
 
 		if (!answer.ok) return { ok: false as const, reason: answer.reason };
 

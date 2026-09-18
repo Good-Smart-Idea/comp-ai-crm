@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	BRIGHT_DATA_COMPANY_RESEARCH,
+	BRIGHT_DATA_WEB_RESEARCH,
 	capabilitiesFrom,
 	enabled,
 	markdownFor,
@@ -8,7 +9,6 @@ import {
 } from "../agent/lib/capabilities";
 
 const KEYS = [
-	"PERPLEXITY_API_KEY",
 	"BLOB_READ_WRITE_TOKEN",
 	"BRIGHTDATA_API_TOKEN",
 	"BRIGHTDATA_UNLOCKER_USER",
@@ -21,7 +21,7 @@ const KEYS = [
 const saved: Record<string, string | undefined> = {};
 
 function configure() {
-	for (const key of KEYS.slice(2)) process.env[key] = "test";
+	for (const key of KEYS.slice(1)) process.env[key] = "test";
 }
 
 beforeEach(() => {
@@ -39,6 +39,23 @@ afterEach(() => {
 });
 
 describe("managed capabilities", () => {
+	it("keeps web research unavailable without a Bright Data SERP zone", () => {
+		expect(
+			capabilitiesFrom().find(
+				(capability) => capability.id === BRIGHT_DATA_WEB_RESEARCH,
+			)?.enabled,
+		).toBe(false);
+	});
+
+	it("enables web research once BRIGHTDATA_API_TOKEN and BRIGHTDATA_SERP_ZONE are set", () => {
+		configure();
+		expect(
+			capabilitiesFrom().find(
+				(capability) => capability.id === BRIGHT_DATA_WEB_RESEARCH,
+			)?.enabled,
+		).toBe(true);
+	});
+
 	it("keeps company research unavailable without managed credentials", () => {
 		expect(
 			capabilitiesFrom().find(
