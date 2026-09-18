@@ -22,6 +22,8 @@ jobs:
     name: check-types, lint, test
     runs-on: [self-hosted, Linux, X64, gsi-ada]
     timeout-minutes: 20
+    container:
+      image: node:22-trixie
 
     services:
       postgres:
@@ -49,30 +51,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Ensure unzip is available (self-hosted runner has no root)
+      - name: Ensure unzip is available
         run: |
           if command -v unzip >/dev/null 2>&1; then
             exit 0
           fi
-          echo "unzip missing on this self-hosted runner; installing a local copy without root"
-          workdir="$(mktemp -d)"
-          cd "$workdir"
-          apt-get download unzip
-          dpkg-deb -x ./unzip_*.deb extracted
-          mkdir -p "$HOME/.local/bin"
-          cp extracted/usr/bin/unzip "$HOME/.local/bin/unzip"
-          chmod +x "$HOME/.local/bin/unzip"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          apt-get update && apt-get install -y unzip
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
-      - name: Set database URLs from assigned postgres port
+      - name: Set database URLs
         run: |
-          PORT="${{ job.services.postgres.ports['5432'] }}"
-          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:${PORT}/crm_test?schema=public" >> "$GITHUB_ENV"
-          echo "TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:${PORT}/crm_test?schema=public" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=postgresql://postgres:postgres@postgres:5432/crm_test?schema=public" >> "$GITHUB_ENV"
+          echo "TEST_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/crm_test?schema=public" >> "$GITHUB_ENV"
 
       - run: bun install --frozen-lockfile
 
