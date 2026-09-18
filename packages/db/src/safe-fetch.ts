@@ -87,6 +87,7 @@ function expandIPv6(ip: string): number[] | null {
 async function publicAddresses(
 	hostname: string,
 	timeoutMs: number,
+	signal?: AbortSignal,
 ): Promise<LookupAddress[]> {
 	const literal = hostname.replace(/^\[|\]$/g, "");
 	if (net.isIP(literal))
@@ -95,6 +96,7 @@ async function publicAddresses(
 			: [{ address: literal, family: net.isIP(literal) }];
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let onAbort: (() => void) | undefined;
 	try {
 		const addresses = await Promise.race([
 			dns.lookup(hostname, { all: true }),
@@ -103,6 +105,11 @@ async function publicAddresses(
 					() => reject(new Error(`${hostname} did not resolve in time`)),
 					timeoutMs,
 				);
+				onAbort = () => {
+					clearTimeout(timer);
+					reject(new Error("The request was aborted."));
+				};
+				signal?.addEventListener("abort", onAbort);
 			}),
 		]);
 		return addresses.length > 0 &&
@@ -113,6 +120,7 @@ async function publicAddresses(
 		return [];
 	} finally {
 		clearTimeout(timer);
+		if (onAbort) signal?.removeEventListener("abort", onAbort);
 	}
 }
 
@@ -130,11 +138,13 @@ export async function safeFetch(
 		timeoutMs = DEFAULT_TIMEOUT_MS,
 		headers,
 		body,
+		signal,
 	}: {
 		method?: "GET" | "HEAD" | "POST";
 		timeoutMs?: number;
 		headers?: Record<string, string>;
 		body?: string;
+		signal?: AbortSignal;
 	} = {},
 ): Promise<{ response: Response; url: URL } | null> {
 	let target: URL;
@@ -145,6 +155,7 @@ export async function safeFetch(
 	}
 
 	for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+		if (signal?.aborted) return null;
 		if (
 			(target.protocol !== "https:" && target.protocol !== "http:") ||
 			target.username ||
@@ -152,7 +163,7 @@ export async function safeFetch(
 			(target.port && target.port !== "80" && target.port !== "443")
 		)
 			return null;
-		const addresses = await publicAddresses(target.hostname, timeoutMs);
+		const addresses = await publicAddresses(target.hostname, timeoutMs, signal);
 		const firstAddress = addresses[0];
 		if (!firstAddress) return null;
 		const response = await pinnedFetch(target, firstAddress, {
@@ -160,6 +171,7 @@ export async function safeFetch(
 			timeoutMs,
 			headers,
 			body,
+			signal,
 		});
 		if (!response) return null;
 		const location = response.headers.get("location");
@@ -185,9 +197,14 @@ function pinnedFetch(
 		timeoutMs: number;
 		headers?: Record<string, string>;
 		body?: string;
+		signal?: AbortSignal;
 	},
 ): Promise<Response | null> {
 	return new Promise((resolve) => {
+		if (input.signal?.aborted) {
+			resolve(null);
+			return;
+		}
 		const secure = target.protocol === "https:";
 		const request = (secure ? https : http).request(
 			{
@@ -217,8 +234,17 @@ function pinnedFetch(
 				);
 			},
 		);
-		request.setTimeout(input.timeoutMs, () => request.destroy());
+		request.setTimeout(input.timeoutMs, () =>
+			request.destroy(new Error("Request timed out.")),
+		);
 		request.once("error", () => resolve(null));
+		if (input.signal) {
+			const onAbort = () => request.destroy(new Error("The request was aborted."));
+			input.signal.addEventListener("abort", onAbort);
+			request.once("close", () =>
+				input.signal?.removeEventListener("abort", onAbort),
+			);
+		}
 		request.end(input.body);
 	});
 }

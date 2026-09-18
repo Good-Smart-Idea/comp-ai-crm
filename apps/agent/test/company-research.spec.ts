@@ -114,6 +114,36 @@ describe("Bright Data company research", () => {
 		expect(serp.url).toContain("brd_json=1");
 	});
 
+	it("falls back to the Unlocker zone when SERP search is exhausted", async () => {
+		configure();
+		const bodies: { zone: string; url: string }[] = [];
+		const provider = new BrightDataCompanyResearch(async (_url, init) => {
+			const body = JSON.parse(String(init.body)) as {
+				zone: string;
+				url: string;
+			};
+			bodies.push(body);
+			const isGoogleSearch = body.url.includes("google.com/search");
+			if (body.zone === "serp-zone" && isGoogleSearch)
+				return new Response("down", { status: 503 });
+			if (body.zone === "unlocker-zone" && isGoogleSearch)
+				return new Response(
+					'<a href="https://www.acme.example/about">About</a>',
+				);
+			if (body.url === "https://acme.example/")
+				return new Response("not found", { status: 404 });
+			return new Response("<title>Acme</title>");
+		});
+		const result = await provider.lookup("acme.example");
+		const serpAttempts = bodies.filter((body) => body.zone === "serp-zone");
+		const unlockerSearch = bodies.find(
+			(body) => body.zone === "unlocker-zone" && body.url.includes("google"),
+		);
+		expect(serpAttempts.length).toBe(COMPANY_RESEARCH.search.retries + 1);
+		expect(unlockerSearch).toBeDefined();
+		expect(result.outcome).toBe("found");
+	});
+
 	it("rejects local, mapped IPv6, userinfo, and non-HTTPS targets", async () => {
 		configure();
 		const provider = new BrightDataCompanyResearch(
@@ -137,4 +167,32 @@ describe("Bright Data company research", () => {
 		expect(await limitedText(response, 4)).toBe("abcd");
 		expect(COMPANY_RESEARCH.request.retries).toBeGreaterThan(0);
 	});
+
+	it(
+		"returns a failed outcome instead of hanging when the fetch stalls",
+		async () => {
+			configure();
+			const provider = new BrightDataCompanyResearch(
+				(_url, init) =>
+					new Promise<Response>((_resolve, reject) => {
+						const signal = init.signal;
+						if (!(signal instanceof AbortSignal)) return;
+						signal.addEventListener("abort", () =>
+							reject(new Error("The request was aborted.")),
+						);
+					}),
+			);
+			const started = Date.now();
+			const result = await provider.read("https://stripe.com");
+			const elapsed = Date.now() - started;
+			expect(result).toEqual({
+				outcome: "failed",
+				reason: "Bright Data did not answer in time.",
+			});
+			expect(elapsed).toBeLessThan(
+				COMPANY_RESEARCH.request.totalTimeoutMs + 2_000,
+			);
+		},
+		COMPANY_RESEARCH.request.totalTimeoutMs + 5_000,
+	);
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { linkedInPersonByUrl } from "./bd-client";
 import { companyResearch } from "./company-research";
 
 export const MATCH_FLOOR = 80;
@@ -128,6 +129,8 @@ const candidateShape = z.object({
 export async function personByProfileUrl(
 	profileUrl: string,
 ): Promise<PersonMatch> {
+	const managed = await personFromManagedProfile(profileUrl);
+	if (managed) return matchFrom(managed);
 	if (!companyResearch.available()) return unavailable();
 	const result = await companyResearch.read(profileUrl);
 	if (result.outcome === "failed")
@@ -152,6 +155,76 @@ function unavailable(): PersonMatch {
 	return {
 		outcome: "skipped",
 		reason: "A managed person research provider is not configured.",
+	};
+}
+
+async function personFromManagedProfile(
+	profileUrl: string,
+): Promise<EnrichedMatch | null> {
+	const record = await linkedInPersonByUrl(profileUrl);
+	if (!record) return null;
+	const name =
+		typeof record.name === "string" ? (record.name as string) : null;
+	const [first = null, ...rest] = name?.split(/\s+/) ?? [];
+	const last = rest.length > 0 ? rest.join(" ") : null;
+	const currentCompany =
+		record.current_company &&
+		typeof record.current_company === "object" &&
+		record.current_company !== null
+			? (record.current_company as { name?: string; title?: string })
+			: null;
+	const currentRole = currentCompany
+		? {
+				title: currentCompany.title ?? null,
+				organization: {
+					name: currentCompany.name ?? null,
+					domain: null,
+				},
+				start_date: null,
+				end_date: null,
+				location: null,
+				description: null,
+				is_current: true,
+			}
+		: null;
+	const experienceRaw = Array.isArray(record.experience)
+		? (record.experience as {
+				title?: string;
+				company?: string;
+				start_date?: string;
+				end_date?: string;
+			}[])
+		: [];
+	const experience = experienceRaw.map((role) => ({
+		title: role.title ?? null,
+		organization: { name: role.company ?? null, domain: null },
+		start_date: null,
+		end_date: null,
+		location: null,
+		description: null,
+		is_current: role.end_date === "Present",
+	}));
+	return {
+		status: "candidate",
+		score: MATCH_FLOOR,
+		person: {
+			name: { first, last, full: name },
+			email: null,
+			avatar_url: null,
+			bio: null,
+			location: {
+				display: typeof record.city === "string" ? record.city : null,
+				city: null,
+				region: null,
+				country: null,
+			},
+			social_urls: [profileUrl],
+			website_urls: [],
+			skills: [],
+			current_role: currentRole,
+			experience,
+			education: [],
+		},
 	};
 }
 
