@@ -31,6 +31,8 @@ is an edited migration that has already been applied.
   `gmail.readonly` is a *restricted* scope, so an External app needs OAuth
   verification plus an annual CASA assessment. Going External later means the full
   review — a decision, not a checkbox.
+- **Full step-by-step for the GSI/Ada deployment** (exact redirect URIs, client
+  type, what to hand to ops): `docs/google-oauth-setup.md`.
 
 ## The agent bridge
 
