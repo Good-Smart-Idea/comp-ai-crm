@@ -20,7 +20,7 @@ env:
 jobs:
   check:
     name: check-types, lint, test
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, gsi-ada]
     timeout-minutes: 20
 
     services:
