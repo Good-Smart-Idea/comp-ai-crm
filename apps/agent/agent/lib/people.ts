@@ -163,8 +163,7 @@ async function personFromManagedProfile(
 ): Promise<EnrichedMatch | null> {
 	const record = await linkedInPersonByUrl(profileUrl);
 	if (!record) return null;
-	const name =
-		typeof record.name === "string" ? (record.name as string) : null;
+	const name = typeof record.name === "string" ? (record.name as string) : null;
 	const [first = null, ...rest] = name?.split(/\s+/) ?? [];
 	const last = rest.length > 0 ? rest.join(" ") : null;
 	const currentCompany =

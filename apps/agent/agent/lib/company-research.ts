@@ -398,7 +398,10 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 			}
 		});
 		if (!result?.ok) return null;
-		const document = await limitedText(result, COMPANY_RESEARCH.request.maxBytes);
+		const document = await limitedText(
+			result,
+			COMPANY_RESEARCH.request.maxBytes,
+		);
 		for (const link of extractSearchResultLinks(document)) {
 			const page = safeTarget(link);
 			if (page && accepts(page)) return page.toString();

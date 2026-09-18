@@ -10,8 +10,7 @@ export const BRIGHT_DATA_COMPANY_RESEARCH_SOURCE =
 
 export const BRIGHT_DATA_WEB_RESEARCH = "BRIGHT_DATA_WEB_RESEARCH";
 
-export const BRIGHT_DATA_WEB_RESEARCH_SOURCE =
-	"Bright Data managed connector";
+export const BRIGHT_DATA_WEB_RESEARCH_SOURCE = "Bright Data managed connector";
 
 export const MANAGED_PERSON_RESEARCH = "MANAGED_PERSON_RESEARCH";
 
