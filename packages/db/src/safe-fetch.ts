@@ -239,7 +239,8 @@ function pinnedFetch(
 		);
 		request.once("error", () => resolve(null));
 		if (input.signal) {
-			const onAbort = () => request.destroy(new Error("The request was aborted."));
+			const onAbort = () =>
+				request.destroy(new Error("The request was aborted."));
 			input.signal.addEventListener("abort", onAbort);
 			request.once("close", () =>
 				input.signal?.removeEventListener("abort", onAbort),
