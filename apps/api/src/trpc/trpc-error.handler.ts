@@ -1,5 +1,6 @@
 import { apiError } from "@crm/telemetry";
 import { Injectable, Logger } from "@nestjs/common";
+import { captureException } from "@sentry/bun";
 import type { OnErrorOptions, TRPCErrorHandler } from "nestjs-trpc";
 
 @Injectable()
@@ -21,6 +22,7 @@ export class TrpcErrorHandler implements TRPCErrorHandler {
 				route: path ? `/trpc/${path}` : null,
 				status: 500,
 			});
+			captureException(error.cause ?? error);
 			return;
 		}
 
