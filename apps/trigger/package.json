@@ -1,0 +1,26 @@
+{
+	"name": "@crm/trigger",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "trigger dev",
+		"deploy": "trigger deploy",
+		"check-types": "tsc --noEmit",
+		"lint": "biome check .",
+		"test": "CRM_TELEMETRY_DISABLED=1 bun test test/unit",
+		"test:contract": "CRM_TELEMETRY_DISABLED=1 bun test test/contract",
+		"clean": "rm -rf .turbo node_modules"
+	},
+	"dependencies": {
+		"@brightdata/sdk": "^1.2.0",
+		"@crm/telemetry": "workspace:*",
+		"@trigger.dev/sdk": "^4.0.0",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@crm/typescript-config": "workspace:*",
+		"@types/node": "^24.10.1",
+		"typescript": "5.9.2"
+	}
+}
