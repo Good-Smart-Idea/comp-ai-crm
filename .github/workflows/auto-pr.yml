@@ -20,12 +20,35 @@ permissions:
 jobs:
   open:
     name: Open a pull request into main
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, gsi-ada]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Ensure gh CLI is available
+        run: |
+          set -euo pipefail
+          if command -v gh >/dev/null 2>&1; then
+            echo "gh already on PATH: $(command -v gh)"
+            exit 0
+          fi
+          if [ -x "$HOME/.local/bin/gh" ]; then
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+            echo "Found existing gh at $HOME/.local/bin/gh, added to PATH"
+            exit 0
+          fi
+          echo "gh not found; installing to $HOME/.local/bin"
+          mkdir -p "$HOME/.local/bin"
+          tmpdir="$(mktemp -d)"
+          curl -fsSL "https://github.com/cli/cli/releases/latest/download/gh_$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | grep -m1 '"tag_name"' | sed -E 's/.*"v([0-9.]+)".*/\1/')_linux_amd64.tar.gz" -o "$tmpdir/gh.tar.gz" || true
+          if [ -s "$tmpdir/gh.tar.gz" ]; then
+            tar -xzf "$tmpdir/gh.tar.gz" -C "$tmpdir"
+            cp "$tmpdir"/gh_*_linux_amd64/bin/gh "$HOME/.local/bin/gh"
+            chmod +x "$HOME/.local/bin/gh"
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Open the pull request
         env:

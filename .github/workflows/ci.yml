@@ -20,8 +20,11 @@ env:
 jobs:
   check:
     name: check-types, lint, test
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, gsi-ada]
     timeout-minutes: 20
+    container:
+      image: node:22-trixie
+      options: --user 1000:1000
 
     services:
       postgres:
@@ -55,8 +58,8 @@ jobs:
 
       - name: Set database URLs
         run: |
-          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:${{ job.services.postgres.ports['5432'] }}/crm_test?schema=public" >> "$GITHUB_ENV"
-          echo "TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:${{ job.services.postgres.ports['5432'] }}/crm_test?schema=public" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=postgresql://postgres:***@postgres:5432/crm_test?schema=public" >> "$GITHUB_ENV"
+          echo "TEST_DATABASE_URL=postgresql://postgres:***@postgres:5432/crm_test?schema=public" >> "$GITHUB_ENV"
 
       - run: bun install --frozen-lockfile
 
