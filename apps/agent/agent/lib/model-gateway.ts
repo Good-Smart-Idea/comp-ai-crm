@@ -1,4 +1,5 @@
 import { createOpenAI, type OpenAIProvider } from "@ai-sdk/openai";
+import { z } from "zod";
 
 const LOCAL_GATEWAY_URL = "http://127.0.0.1:1/v1";
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -6,6 +7,19 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export type GatewayVendor = "ollama" | "openrouter";
 
 export const DEFAULT_VENDOR: GatewayVendor = "ollama";
+
+const gatewayChatCompletionSchema = z.object({
+	model: z.string().optional(),
+	choices: z
+		.array(
+			z.object({
+				message: z.object({
+					content: z.string(),
+				}),
+			}),
+		)
+		.min(1),
+});
 
 export class ModelGatewayError extends Error {
 	readonly vendor: GatewayVendor;
@@ -126,12 +140,16 @@ export async function callModelGateway(
 		);
 	}
 
-	const json = (await response.json()) as {
-		model?: string;
-		choices?: Array<{ message?: { content?: string } }>;
-	};
-	const content = json.choices?.[0]?.message?.content;
-	if (typeof content !== "string") {
+	const json: unknown = await response.json();
+	const parsed = gatewayChatCompletionSchema.safeParse(json);
+	if (!parsed.success) {
+		throw new ModelGatewayError(
+			`Model gateway call to ${vendor} returned an unexpected shape (no choices[0].message.content)`,
+			vendor,
+		);
+	}
+	const content = parsed.data.choices.at(0)?.message.content;
+	if (content === undefined) {
 		throw new ModelGatewayError(
 			`Model gateway call to ${vendor} returned an unexpected shape (no choices[0].message.content)`,
 			vendor,
@@ -140,7 +158,7 @@ export async function callModelGateway(
 
 	return {
 		vendor,
-		model: json.model ?? model,
+		model: parsed.data.model ?? model,
 		content,
 		raw: json,
 	};

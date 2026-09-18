@@ -20,7 +20,6 @@ describe.skipIf(!baseURL)(
 				{ timeoutMs: 20_000 },
 			);
 			expect(result.vendor).toBe("ollama");
-			expect(typeof result.content).toBe("string");
 			expect(result.content.length).toBeGreaterThan(0);
 			expect(result.raw).toBeDefined();
 		});
@@ -33,7 +32,6 @@ describe.skipIf(!baseURL)(
 				{ vendor: "openrouter", timeoutMs: 20_000 },
 			);
 			expect(result.vendor).toBe("openrouter");
-			expect(typeof result.content).toBe("string");
 			expect(result.content.length).toBeGreaterThan(0);
 			expect(result.raw).toBeDefined();
 		});
