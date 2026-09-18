@@ -16,7 +16,7 @@ permissions:
 jobs:
   release-please:
     name: Release pull request, tag and notes
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, gsi-ada]
     timeout-minutes: 10
     steps:
       - uses: googleapis/release-please-action@v5

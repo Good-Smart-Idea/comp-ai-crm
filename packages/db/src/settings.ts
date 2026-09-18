@@ -9,8 +9,8 @@ import { WORKSPACE_ID } from "./workspace";
 export const SETTINGS_ID = "app";
 
 export const DEFAULT_AGENT_MODEL = {
-	id: "local",
-	contextWindowTokens: 128_000,
+	id: "deepseek/deepseek-v4-flash",
+	contextWindowTokens: 1_048_576,
 } as const;
 
 export interface AgentModelSetting {
