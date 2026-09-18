@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 20
     container:
       image: node:22-trixie
+      options: --user 1000:1000
 
     services:
       postgres:
@@ -50,13 +51,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-
-      - name: Ensure unzip is available
-        run: |
-          if command -v unzip >/dev/null 2>&1; then
-            exit 0
-          fi
-          apt-get update && apt-get install -y unzip
 
       - uses: oven-sh/setup-bun@v2
         with:
