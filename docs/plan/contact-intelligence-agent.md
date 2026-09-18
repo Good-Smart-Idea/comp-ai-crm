@@ -269,7 +269,7 @@ plan does not have to.
 
 | Built-in | What it replaces |
 | --- | --- |
-| `web_search`, `web_fetch` | Half of `lib/perplexity.ts`. Perplexity stays for *cited synthesis*; plain retrieval is a built-in. |
+| `web_search`, `web_fetch` | Not used for contact/company research — that goes through the Bright Data escalation ladder (`lib/web-research.ts`, `lib/company-research.ts`) per house policy, never Perplexity, never BD_CLAUDE_PROXY. |
 | `bash`, `read_file`, `write_file`, `glob`, `grep` | A `/workspace` dossier per contact: dump the profile JSON, grep it, diff this month's against last month's. Job-change detection becomes a `diff`. |
 | `todo` | Durable per-session task list. Multi-step research stops living in the prompt. |
 | `ask_question` | The agent asks the rep — "two Marchettis at Fernhill, which one?" — and parks. Worth more than any heuristic we could write for that case. |
