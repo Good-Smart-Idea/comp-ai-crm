@@ -53,8 +53,8 @@ describe("BrightDataClient", () => {
 	it("returns ok with the response body on success", async () => {
 		const client = new BrightDataClient({ apiToken: "t", zone: "z" });
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = mock(async () =>
-			new Response("<html>hi</html>", { status: 200 }),
+		globalThis.fetch = mock(
+			async () => new Response("<html>hi</html>", { status: 200 }),
 		) as typeof fetch;
 
 		try {
@@ -72,8 +72,8 @@ describe("BrightDataClient", () => {
 	it("maps a 401 to a typed, non-retryable unauthorized error", async () => {
 		const client = new BrightDataClient({ apiToken: "bad", zone: "z" });
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = mock(async () =>
-			new Response("nope", { status: 401 }),
+		globalThis.fetch = mock(
+			async () => new Response("nope", { status: 401 }),
 		) as typeof fetch;
 
 		try {
@@ -92,8 +92,8 @@ describe("BrightDataClient", () => {
 	it("maps a 429 to a retryable rate_limited error", async () => {
 		const client = new BrightDataClient({ apiToken: "t", zone: "z" });
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = mock(async () =>
-			new Response("slow down", { status: 429 }),
+		globalThis.fetch = mock(
+			async () => new Response("slow down", { status: 429 }),
 		) as typeof fetch;
 
 		try {

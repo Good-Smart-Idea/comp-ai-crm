@@ -1,17 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
-import { BrightDataClient, brightDataConfigFromEnv } from "../../src/bright-data";
+import {
+	BrightDataClient,
+	brightDataConfigFromEnv,
+} from "../../src/bright-data";
 
-/**
- * Real contract test against live Bright Data — no mocks.
- *
- * Requires BRIGHTDATA_API_TOKEN + BRIGHTDATA_UNLOCKER_ZONE (Bright Data
- * account: BRIGHTDATA_USER confirms this workspace has one provisioned).
- * Skips with a clear message when credentials are absent instead of
- * failing CI on unrelated branches/forks.
- *
- * Mocks @crm/telemetry's bumpCounter so the test doesn't require a DB.
- */
-import * as telemetry from "@crm/telemetry";
 mock.module("@crm/telemetry", () => ({
 	bumpCounter: mock(() => Promise.resolve()),
 }));
@@ -25,7 +17,9 @@ describe("BrightDataClient contract (live)", () => {
 	if (!config) {
 		console.warn(
 			`[bright-data contract test] skipped: BRIGHTDATA_API_TOKEN/BRIGHTDATA_UNLOCKER_ZONE not set` +
-				(hasAccount ? " (BRIGHTDATA_USER is set, but token/zone are not)." : "."),
+				(hasAccount
+					? " (BRIGHTDATA_USER is set, but token/zone are not)."
+					: "."),
 		);
 	}
 
