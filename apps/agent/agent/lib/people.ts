@@ -163,15 +163,10 @@ async function personFromManagedProfile(
 ): Promise<EnrichedMatch | null> {
 	const record = await linkedInPersonByUrl(profileUrl);
 	if (!record) return null;
-	const name = typeof record.name === "string" ? (record.name as string) : null;
+	const name = record.name ?? null;
 	const [first = null, ...rest] = name?.split(/\s+/) ?? [];
 	const last = rest.length > 0 ? rest.join(" ") : null;
-	const currentCompany =
-		record.current_company &&
-		typeof record.current_company === "object" &&
-		record.current_company !== null
-			? (record.current_company as { name?: string; title?: string })
-			: null;
+	const currentCompany = record.current_company ?? null;
 	const currentRole = currentCompany
 		? {
 				title: currentCompany.title ?? null,
@@ -186,14 +181,7 @@ async function personFromManagedProfile(
 				is_current: true,
 			}
 		: null;
-	const experienceRaw = Array.isArray(record.experience)
-		? (record.experience as {
-				title?: string;
-				company?: string;
-				start_date?: string;
-				end_date?: string;
-			}[])
-		: [];
+	const experienceRaw = record.experience ?? [];
 	const experience = experienceRaw.map((role) => ({
 		title: role.title ?? null,
 		organization: { name: role.company ?? null, domain: null },
@@ -212,7 +200,7 @@ async function personFromManagedProfile(
 			avatar_url: null,
 			bio: null,
 			location: {
-				display: typeof record.city === "string" ? record.city : null,
+				display: record.city ?? null,
 				city: null,
 				region: null,
 				country: null,

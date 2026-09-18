@@ -1,4 +1,5 @@
 import { bdclient, ScrapeJob } from "@brightdata/sdk";
+import { z } from "zod";
 
 let client: bdclient | null = null;
 
@@ -18,34 +19,76 @@ export function brightDataClient(): bdclient | null {
 	return client;
 }
 
-function parseRecord(result: unknown): Record<string, unknown> | null {
-	if (typeof result === "string") {
-		try {
-			const parsed = JSON.parse(result) as unknown;
-			if (Array.isArray(parsed))
-				return (parsed[0] as Record<string, unknown> | undefined) ?? null;
-			if (parsed && typeof parsed === "object")
-				return parsed as Record<string, unknown>;
-			return null;
-		} catch {
-			return null;
-		}
-	}
-	if (result instanceof ScrapeJob) return null;
-	if (Array.isArray(result))
-		return (result[0] as Record<string, unknown> | undefined) ?? null;
-	if (result && typeof result === "object")
-		return result as Record<string, unknown>;
-	return null;
-}
+const linkedInCompany = z
+	.object({
+		id: z.string().optional(),
+		name: z.string().optional(),
+		website: z.string().optional(),
+		industries: z.string().optional(),
+		country_code: z.string().optional(),
+		locations: z.array(z.string()).optional(),
+	})
+	.passthrough();
 
-export type LinkedInCompanyRecord = {
-	id?: string;
-	name?: string;
-	country_code?: string;
-	locations?: string[];
-	[key: string]: unknown;
-};
+export type LinkedInCompanyRecord = z.infer<typeof linkedInCompany>;
+
+const linkedInExperienceRole = z
+	.object({
+		title: z.string().optional(),
+		company: z.string().optional(),
+		start_date: z.string().optional(),
+		end_date: z.string().optional(),
+	})
+	.passthrough();
+
+const linkedInCurrentCompany = z
+	.object({
+		name: z.string().optional(),
+		title: z.string().optional(),
+	})
+	.passthrough();
+
+const linkedInPerson = z
+	.object({
+		name: z.string().optional(),
+		city: z.string().optional(),
+		current_company: linkedInCurrentCompany.optional(),
+		experience: z.array(linkedInExperienceRole).optional(),
+	})
+	.passthrough();
+
+export type LinkedInPersonRecord = z.infer<typeof linkedInPerson>;
+export type LinkedInExperienceRole = z.infer<typeof linkedInExperienceRole>;
+export type LinkedInCurrentCompany = z.infer<typeof linkedInCurrentCompany>;
+
+const sdkArrayEntry = z.record(z.string(), z.unknown());
+
+type ScrapeSdkResult = Awaited<
+	ReturnType<bdclient["scrape"]["linkedin"]["collectCompanies"]>
+>;
+
+function firstEntry<T>(
+	schema: z.ZodType<T>,
+	result: ScrapeSdkResult,
+): T | null {
+	if (result instanceof ScrapeJob) return null;
+	const asArray = z.array(sdkArrayEntry).safeParse(result);
+	if (asArray.success) {
+		const parsed = schema.safeParse(asArray.data[0]);
+		return parsed.success ? parsed.data : null;
+	}
+	const asJson = z.string().safeParse(result);
+	if (!asJson.success) return null;
+	let document: unknown;
+	try {
+		document = JSON.parse(asJson.data);
+	} catch {
+		return null;
+	}
+	const entry = Array.isArray(document) ? document[0] : document;
+	const parsed = schema.safeParse(entry);
+	return parsed.success ? parsed.data : null;
+}
 
 export async function linkedInCompanyByUrl(
 	url: string,
@@ -54,17 +97,11 @@ export async function linkedInCompanyByUrl(
 	if (!bd) return null;
 	try {
 		const result = await bd.scrape.linkedin.collectCompanies([url], {});
-		const record = parseRecord(result);
-		return (record as LinkedInCompanyRecord | null) ?? null;
+		return firstEntry(linkedInCompany, result);
 	} catch {
 		return null;
 	}
 }
-
-export type LinkedInPersonRecord = {
-	name?: string;
-	[key: string]: unknown;
-};
 
 export async function linkedInPersonByUrl(
 	url: string,
@@ -73,8 +110,7 @@ export async function linkedInPersonByUrl(
 	if (!bd) return null;
 	try {
 		const result = await bd.scrape.linkedin.collectProfiles([url], {});
-		const record = parseRecord(result);
-		return (record as LinkedInPersonRecord | null) ?? null;
+		return firstEntry(linkedInPerson, result);
 	} catch {
 		return null;
 	}

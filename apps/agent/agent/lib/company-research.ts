@@ -1,6 +1,6 @@
 import { safeFetch } from "@crm/db/safe-fetch";
 import { z } from "zod";
-import { linkedInCompanyByUrl } from "./bd-client";
+import { type LinkedInCompanyRecord, linkedInCompanyByUrl } from "./bd-client";
 
 const SECOND_MS = 1_000;
 
@@ -236,15 +236,16 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 			? await linkedInCompanyByUrl(linkedinUrl)
 			: null;
 		const merged = managed ? mergeManagedCompany(brand, managed) : brand;
+		const raw: JsonObject = {
+			provider: "bright-data",
+			sourceUrl,
+			brief: page.brief,
+		};
+		if (managed) raw.managedCompany = true;
 		return {
 			outcome: "found",
 			brand: merged,
-			raw: {
-				provider: "bright-data",
-				sourceUrl,
-				brief: page.brief,
-				...(managed ? { managedCompany: true } : {}),
-			},
+			raw,
 		};
 	}
 
@@ -565,12 +566,11 @@ export function briefFromPage(sourceUrl: string, page: string): ResearchBrief {
 
 function mergeManagedCompany(
 	brand: Brand,
-	managed: Record<string, unknown>,
+	managed: LinkedInCompanyRecord,
 ): Brand {
-	const name = typeof managed.name === "string" ? managed.name : null;
-	const website = typeof managed.website === "string" ? managed.website : null;
-	const industries =
-		typeof managed.industries === "string" ? managed.industries : null;
+	const name = managed.name ?? null;
+	const website = managed.website ?? null;
+	const industries = managed.industries ?? null;
 	return {
 		...brand,
 		title: brand.title ?? name,
