@@ -1,5 +1,6 @@
 import { safeFetch } from "@crm/db/safe-fetch";
 import { z } from "zod";
+import { type LinkedInCompanyRecord, linkedInCompanyByUrl } from "./bd-client";
 
 const SECOND_MS = 1_000;
 
@@ -11,6 +12,10 @@ export const COMPANY_RESEARCH = {
 		maxBytes: 512 * 1024,
 		maxConcurrent: 4,
 		totalTimeoutMs: 30 * SECOND_MS,
+	},
+	search: {
+		retries: 2,
+		fallbackZone: true,
 	},
 } as const;
 
@@ -129,6 +134,19 @@ async function withPermit<T>(run: () => Promise<T>): Promise<T> {
 	}
 }
 
+function authorizationHeader(token: string): string {
+	return ["Bearer", token].join(" ");
+}
+
+function extractSearchResultLinks(document: string): string[] {
+	const links: string[] = [];
+	for (const match of document.matchAll(/href="(https?:\/\/[^"]+)"/gi)) {
+		const href = match[1];
+		if (href && !links.includes(href)) links.push(href);
+	}
+	return links;
+}
+
 async function secureFetch(
 	url: string,
 	init: BrightDataRequestInit,
@@ -138,6 +156,7 @@ async function secureFetch(
 		timeoutMs: COMPANY_RESEARCH.request.timeoutMs,
 		headers: Object.fromEntries(new Headers(init.headers).entries()),
 		body: init.body,
+		signal: init.signal instanceof AbortSignal ? init.signal : undefined,
 	});
 	if (!result) throw new Error("Bright Data did not answer in time.");
 	return result.response;
@@ -204,15 +223,29 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 		);
 	}
 
-	private brandResult(
+	private async brandResult(
 		domain: string,
 		sourceUrl: string,
 		page: Extract<PageResult, { outcome: "found" }>,
-	): LookupResult {
+	): Promise<LookupResult> {
+		const brand = brandFromPage(domain, sourceUrl, page.document);
+		const linkedinUrl = brand.socials?.find(
+			(social) => social.type === "linkedin",
+		)?.url;
+		const managed = linkedinUrl
+			? await linkedInCompanyByUrl(linkedinUrl)
+			: null;
+		const merged = managed ? mergeManagedCompany(brand, managed) : brand;
+		const raw: JsonObject = {
+			provider: "bright-data",
+			sourceUrl,
+			brief: page.brief,
+		};
+		if (managed) raw.managedCompany = true;
 		return {
 			outcome: "found",
-			brand: brandFromPage(domain, sourceUrl, page.document),
-			raw: { provider: "bright-data", sourceUrl, brief: page.brief },
+			brand: merged,
+			raw,
 		};
 	}
 
@@ -236,7 +269,7 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 					const response = await this.fetcher(BRIGHT_DATA_REQUEST_URL, {
 						method: "POST",
 						headers: {
-							authorization: `Bearer ${config.token}`,
+							authorization: authorizationHeader(config.token),
 							"content-type": "application/json",
 							accept: "text/html",
 						},
@@ -286,6 +319,23 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 		config: BrightDataConfig,
 		accepts: (url: URL) => boolean,
 	): Promise<string | null> {
+		for (
+			let attempt = 0;
+			attempt <= COMPANY_RESEARCH.search.retries;
+			attempt += 1
+		) {
+			const found = await this.searchOnce(terms, config, accepts);
+			if (found !== null) return found;
+		}
+		if (!COMPANY_RESEARCH.search.fallbackZone) return null;
+		return this.searchViaUnlockerFallback(terms, config, accepts);
+	}
+
+	private async searchOnce(
+		terms: string,
+		config: BrightDataConfig,
+		accepts: (url: URL) => boolean,
+	): Promise<string | null> {
 		const search = new URL(SEARCH_ENGINE_URL);
 		search.searchParams.set("q", terms);
 		search.searchParams.set("brd_json", "1");
@@ -294,7 +344,7 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 				return await this.fetcher(BRIGHT_DATA_REQUEST_URL, {
 					method: "POST",
 					headers: {
-						authorization: `Bearer ${config.token}`,
+						authorization: authorizationHeader(config.token),
 						"content-type": "application/json",
 						accept: "application/json",
 					},
@@ -316,6 +366,45 @@ export class BrightDataCompanyResearch implements CompanyResearchProvider {
 			COMPANY_RESEARCH.request.maxPages,
 		)) {
 			const page = safeTarget(candidate);
+			if (page && accepts(page)) return page.toString();
+		}
+		return null;
+	}
+
+	private async searchViaUnlockerFallback(
+		terms: string,
+		config: BrightDataConfig,
+		accepts: (url: URL) => boolean,
+	): Promise<string | null> {
+		const search = new URL(SEARCH_ENGINE_URL);
+		search.searchParams.set("q", terms);
+		const result = await withPermit(async () => {
+			try {
+				return await this.fetcher(BRIGHT_DATA_REQUEST_URL, {
+					method: "POST",
+					headers: {
+						authorization: authorizationHeader(config.token),
+						"content-type": "application/json",
+						accept: "text/html",
+					},
+					body: JSON.stringify({
+						zone: config.unlockerZone,
+						url: search.toString(),
+						format: "raw",
+					}),
+					signal: AbortSignal.timeout(COMPANY_RESEARCH.request.timeoutMs),
+				});
+			} catch {
+				return null;
+			}
+		});
+		if (!result?.ok) return null;
+		const document = await limitedText(
+			result,
+			COMPANY_RESEARCH.request.maxBytes,
+		);
+		for (const link of extractSearchResultLinks(document)) {
+			const page = safeTarget(link);
 			if (page && accepts(page)) return page.toString();
 		}
 		return null;
@@ -472,6 +561,26 @@ export function briefFromPage(sourceUrl: string, page: string): ResearchBrief {
 			email: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(page)?.[0] ?? null,
 			phone: /\+?[0-9][0-9(). -]{6,}[0-9]/.exec(page)?.[0] ?? null,
 		},
+	};
+}
+
+function mergeManagedCompany(
+	brand: Brand,
+	managed: LinkedInCompanyRecord,
+): Brand {
+	const name = managed.name ?? null;
+	const website = managed.website ?? null;
+	const industries = managed.industries ?? null;
+	return {
+		...brand,
+		title: brand.title ?? name,
+		description: brand.description,
+		links: brand.links ?? { pricing: website, careers: null },
+		industries:
+			brand.industries ??
+			(industries
+				? { eic: [{ industry: industries, subindustry: null }] }
+				: null),
 	};
 }
 
