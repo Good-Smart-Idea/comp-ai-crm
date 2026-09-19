@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.17.0](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.16.0...v1.17.0) (2026-09-19)
+
+
+### Features
+
+* **agent:** add OpenRouter gateway wrapper with Ollama default ([f33ecf5](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/f33ecf5019a3b7f41b6d5bbce034dd42d54a4fdf))
+* **agent:** OpenRouter gateway wrapper with Ollama default ([e241de3](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/e241de342515994d7222d97561190afa403d4cf8))
+* **api:** report unhandled errors to self-hosted Sentry (CTRL-192) ([e50f3d7](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/e50f3d759963c659270da9350a3c07da5353e755))
+* **api:** report unhandled errors to self-hosted Sentry (CTRL-192) ([4ffbe9e](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/4ffbe9e6a185f765cd00632e88af2b18a06c9b51))
+* **clients:** @gsi/clients ElevenLabs SDK wrapper (CTRL-185) ([#35](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/35)) ([832524d](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/832524d80a9b4186ea4d8b12de892820a3ba658e))
+* **clients:** add Bright Data client wrapper to @gsi/clients ([#36](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/36)) ([d2d4ea2](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/d2d4ea284b0ef165dc091d1b5282010129ae0855))
+
+
+### Fixes
+
+* **ci:** correct regression -- keep self-hosted runner, add unzip fallback ([ef17f99](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/ef17f99d51da490b8565b147530eba87a9ed8623))
+* **ci:** install unzip locally on self-hosted runner (no root available) ([a106ba5](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/a106ba55379cf76a4963e826943e4b0e84621672))
+* **ci:** install unzip via GITHUB_PATH before setup-bun; run DB URL step before bun install ([e238090](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/e238090838733cc4f9f371983b3048f70ca11c60))
+* **ci:** main CI red -- dynamic postgres port on self-hosted runner ([3bd9d4e](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/3bd9d4e7c9d1e820c3be41922a060ba1c90f9667))
+* **ci:** main CI red -- dynamic postgres port on self-hosted runner ([5a8cad5](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/5a8cad59ee5225dc462d9f5183b37a542b6780d1))
+* **ci:** move test postgres to port 5433 to avoid conflict with production compcrm ([7e613aa](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/7e613aa5e75f2f76907c71b435625b152828f14d))
+* **ci:** run check-types/lint/test in node:22-trixie container ([5a6aa08](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/5a6aa0887507510e4ecc913fb3b51ca5971ff431))
+* **ci:** run check-types/lint/test in node:22-trixie container ([09c6f81](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/09c6f817f12c42ee04c8341090af0f946c6d8e5d))
+* **ci:** run container job as uid 1000, drop manual unzip step ([2bc30c9](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/2bc30c997cf6d7db3fd5790abe7fede50f25505d))
+* **ci:** run container job as uid 1000, drop manual unzip step ([13bd578](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/13bd5780a1864a310720d2170f145540bac3be23))
+* **ci:** use dynamic postgres port and ensure gh CLI on self-hosted runner ([a278ca3](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/a278ca3c0eb9be1b9473afec72298428a7942e46))
+* **deploy:** find the running api container by compose label, not docker compose ps ([14f5981](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/14f5981f25fefa1b178b33ee41d8a8dd0c85da8a))
+* **deploy:** find the running api container by compose label, not docker compose ps ([5ddfb32](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/5ddfb32c5b00f4be76367908bb531c7ff719b9ed))
+* **deploy:** reconcile sso-gate into ops/ada/compose.yml, bootstrap missing live tag (CTRL-81) ([0a2b543](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/0a2b543da9ecf417651ae61eaf520e262737864f))
+* **deploy:** reconcile sso-gate into ops/ada/compose.yml, bootstrap missing live tag (CTRL-81) ([6addd7e](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/6addd7e13beffada9b3ee0452734d2f0ea268221))
+* **deploy:** reconcile sso-gate into ops/ada/compose.yml, bootstrap missing live tag (CTRL-81) ([72d59d8](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/72d59d89406e4fc70472283cf694e19e44e531c2))
+* **lint:** exempt ops/ada from anti-slop/no-runtime-typeof ([191b12d](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/191b12df7629af5181f6f884f7ab24acf23c3662))
+* **lint:** exempt ops/ada from anti-slop/no-runtime-typeof ([3929e70](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/3929e702efa3f3d498fd2d89e4ab347f0b0415bb))
+* **lint:** extract typed parseAccessEmailHeader instead of inline typeof check ([a37b9ce](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/a37b9cec843883bc396e5723d3e1f733df37c22b))
+* **lint:** extract typed parseAccessEmailHeader instead of inline typeof check ([7721c8e](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/7721c8e2e6772dd887ae2baa69c4505631ae55e5))
+* **lint:** parse gateway response with zod instead of typeof/as narrowing ([e280a9c](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/e280a9c7fab4ec8359012477a9f0cc6c68ca3cd8))
+* **lint:** satisfy biome formatting in safe-fetch.ts ([#37](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/37)) ([7302f94](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/7302f9466f2aba6be963f45ebeba298fc3607571))
+
+
+### Documentation
+
+* **agents:** add START HERE pointer + CLAUDE.md/AGENTS.md/GEMINI.md parity ([f62bf0c](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/f62bf0c8926fbdc4fa461556cfbdea77bfc8d50c))
+* **agents:** START HERE pointer + CLAUDE/AGENTS/GEMINI parity ([e2aba5e](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/e2aba5ead35f9cc5747639058868105892c0f2fc))
+* **deploy:** record the live-tag bootstrap gap and sso-gate port conflict (CTRL-81 follow-up) ([#14](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/14)) ([a749b8f](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/a749b8f5eda6a36ea062e02f816fae5219cf50e9))
+* **deploy:** record the live-tag bootstrap gap and sso-gate port conflict (CTRL-81 follow-up) ([#14](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/14)) ([#15](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/15)) ([caf466b](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/caf466b3fdb7dab6bc88243ac306d2ccdd72e429))
+* **deploy:** record the live-tag bootstrap gap and sso-gate port conflict (CTRL-81 follow-up) ([#14](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/14)) ([#29](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/29)) ([37a2263](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/37a2263f39b424600d342e1080a0f441449fb7e8))
+
 ## [1.16.0](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.15.3...v1.16.0) (2026-09-15)
 
 
