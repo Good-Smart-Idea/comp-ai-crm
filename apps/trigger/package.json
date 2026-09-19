@@ -20,6 +20,7 @@
 	},
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",
+		"@trigger.dev/build": "^4.0.0",
 		"@types/node": "^24.10.1",
 		"typescript": "5.9.2"
 	}

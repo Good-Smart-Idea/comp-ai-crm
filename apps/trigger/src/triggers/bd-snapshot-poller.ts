@@ -1,6 +1,6 @@
 import { bdclient } from "@brightdata/sdk";
 import { bumpCounter } from "@crm/telemetry";
-import { logger, schedules, task } from "@trigger.dev/sdk/v3";
+import { logger, schedules, task } from "@trigger.dev/sdk";
 import { z } from "zod";
 
 /**
