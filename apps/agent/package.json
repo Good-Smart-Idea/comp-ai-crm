@@ -25,6 +25,7 @@
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",
 		"@crm/validation": "workspace:*",
+		"@gsi/clients": "workspace:*",
 		"eve": "^0.29.4",
 		"zod": "^4.4.3"
 	},
