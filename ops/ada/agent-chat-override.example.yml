@@ -1,0 +1,35 @@
+services:
+  agent:
+    # v1.16.0 image (cb4ed37): ships node 24 (eve requires >=24) + prebuilt agent dist.
+    image: gsi/compcrm:cb4ed37bfacc8b0f86e6f4faba350077b6df1c05
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      CRM_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: postgresql://postgres:${CRM_DB_PASSWORD}@postgres:5432/crm?schema=public
+      API_URL: https://compcrm.carvisgsi.xyz
+      APP_URL: https://compcrm.carvisgsi.xyz
+      AGENT_PORT: "2000"
+      GSI_MODEL_GATEWAY_BASE_URL: https://openrouter.ai/api/v1
+      GSI_MODEL_GATEWAY_API_KEY: ${GSI_MODEL_GATEWAY_API_KEY}
+    working_dir: /src
+    command: bun run --filter=agent start
+    volumes: ["./data/eve:/src/apps/agent/.eve"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:2000/eve/v1/health\").then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+  api:
+    image: gsi/compcrm:v1.15.3-local
+    environment:
+      AGENT_URL: http://agent:2000
+      GSI_MODEL_GATEWAY_BASE_URL: https://openrouter.ai/api/v1
+      GSI_MODEL_GATEWAY_API_KEY: ${GSI_MODEL_GATEWAY_API_KEY}
+  app:
+    environment:
+      AGENT_URL: http://agent:2000
