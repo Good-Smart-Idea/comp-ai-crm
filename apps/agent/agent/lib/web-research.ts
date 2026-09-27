@@ -1,4 +1,5 @@
 import { safeFetch } from "@crm/db/safe-fetch";
+import { z } from "zod";
 
 // Open-web research via GSI's Bright Data escalation ladder — never Perplexity,
 // never BD_CLAUDE_PROXY (that proxy is reserved for Claude/Anthropic egress only).
@@ -52,6 +53,18 @@ type OrganicResult = {
 	description?: string;
 };
 
+const organicResultsSchema = z.object({
+	organic: z
+		.array(
+			z.object({
+				link: z.string().optional(),
+				title: z.string().optional(),
+				description: z.string().optional(),
+			}),
+		)
+		.default([]),
+});
+
 function authHeader(token: string): string {
 	return ["Bearer", token].join(" ");
 }
@@ -79,11 +92,14 @@ async function serpSearch(
 		}),
 	});
 
-	if (!result?.response.ok) return [];
-	const body = (await result.response.json().catch(() => null)) as {
-		organic?: OrganicResult[];
-	} | null;
-	return body?.organic ?? [];
+	if (!result) throw new Error("Bright Data SERP request failed.");
+	if (!result.response.ok) {
+		throw new Error(
+			`Bright Data SERP request returned HTTP ${result.response.status}.`,
+		);
+	}
+	const body = organicResultsSchema.parse(await result.response.json());
+	return body.organic;
 }
 
 /**
@@ -117,8 +133,13 @@ async function unlockerFallbackSearch(
 		}),
 	});
 
-	if (!result?.response.ok) return [];
-	const document = await result.response.text().catch(() => "");
+	if (!result) throw new Error("Bright Data Unlocker request failed.");
+	if (!result.response.ok) {
+		throw new Error(
+			`Bright Data Unlocker request returned HTTP ${result.response.status}.`,
+		);
+	}
+	const document = await result.response.text();
 	return extractOrganicFromHtml(document);
 }
 
@@ -161,20 +182,34 @@ export async function ask(
 	try {
 		let organic: OrganicResult[] = [];
 		let source: AnswerSource = "serp";
+		let serpFailure: unknown;
 		try {
 			organic = await serpSearch(terms, cfg);
-		} catch {
+		} catch (error) {
+			serpFailure = error;
 			organic = [];
 		}
 
 		if (organic.length === 0) {
-			organic = await unlockerFallbackSearch(terms, cfg);
+			try {
+				organic = await unlockerFallbackSearch(terms, cfg);
+			} catch (error) {
+				const primary =
+					serpFailure instanceof Error
+						? serpFailure.message
+						: "SERP returned no results";
+				const fallback = error instanceof Error ? error.message : String(error);
+				throw new Error(`${primary}; fallback failed: ${fallback}`);
+			}
 			source = "unlocker-fallback";
 		}
 
 		const citations = organic
 			.flatMap((row) => (row.link ? [row.link] : []))
 			.slice(0, 8);
+		if (citations.length === 0 && serpFailure) {
+			throw serpFailure;
+		}
 		if (citations.length === 0)
 			return { ok: false, reason: "Bright Data returned no results." };
 

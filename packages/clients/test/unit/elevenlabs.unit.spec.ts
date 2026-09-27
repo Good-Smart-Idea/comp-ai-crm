@@ -87,4 +87,18 @@ describe("ElevenLabsClient unit (no network)", () => {
 			expect(result.data.voices[0]?.voice_id).toBe("abc123");
 		}
 	});
+
+	test("listVoices rejects a malformed successful response", async () => {
+		const client = new ElevenLabsClient({
+			apiKey: "unit-test-key",
+			fetchImpl: async () =>
+				new Response(JSON.stringify({ voices: [{ voice_id: 42 }] }), {
+					status: 200,
+				}),
+		});
+
+		const result = await client.listVoices();
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.message).toContain("Failed to parse");
+	});
 });

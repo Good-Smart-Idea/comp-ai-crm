@@ -129,4 +129,20 @@ describe("CTRL-149: per-task Bright Data endpoint routing", () => {
 		const result = await ask("anything");
 		expect(result.ok).toBe(false);
 	});
+
+	it("preserves provider failures when both search lanes fail", async () => {
+		configure();
+		mock.module("@crm/db/safe-fetch", () => ({
+			safeFetch: async () => ({
+				response: new Response(null, { status: 503 }),
+			}),
+		}));
+		const { ask } = await import("../agent/lib/web-research");
+		const result = await ask("acme");
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toContain("HTTP 503");
+			expect(result.reason).toContain("fallback failed");
+		}
+	});
 });

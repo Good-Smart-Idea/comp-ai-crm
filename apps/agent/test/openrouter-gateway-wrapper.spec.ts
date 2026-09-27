@@ -26,6 +26,38 @@ function restoreEnv() {
 afterEach(restoreEnv);
 
 describe("OpenRouter gateway wrapper — routing and defaults", () => {
+	it("sends governed requests through the agent policy boundary", async () => {
+		process.env.GSI_MODEL_GATEWAY_BASE_URL = "https://gateway.example/v1";
+		process.env.GSI_MODEL_GATEWAY_API_KEY = "gateway-key";
+		const originalFetch = globalThis.fetch;
+		let request: Request | undefined;
+		globalThis.fetch = (async (input, init) => {
+			request = new Request(input, init);
+			return Response.json({
+				model: "test-model",
+				choices: [{ message: { content: "pong" } }],
+			});
+		}) as typeof fetch;
+
+		try {
+			const result = await runAgentGatewayCall({
+				model: "test-model",
+				messages: [{ role: "user", content: "ping" }],
+				userRequestedOpenRouter: true,
+			});
+			expect(request?.url).toBe("https://gateway.example/v1/chat/completions");
+			expect(request?.headers.get("authorization")).toBe("Bearer gateway-key");
+			expect(request?.headers.get("x-gsi-gateway-vendor")).toBe("openrouter");
+			expect(await request?.json()).toEqual({
+				model: "test-model",
+				messages: [{ role: "user", content: "ping" }],
+			});
+			expect(result.content).toBe("pong");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	it("defaults to ollama when no vendor is given", () => {
 		expect(DEFAULT_VENDOR).toBe("ollama");
 		expect(resolveVendor()).toBe("ollama");

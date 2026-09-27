@@ -1,9 +1,5 @@
 import * as Sentry from "@sentry/bun";
 
-/**
- * Self-hosted Sentry (CTRL-192). No-op unless SENTRY_DSN is set, so dev, tests
- * and CI never report. Returns whether reporting is enabled.
- */
 export function initSentry(
 	env: Record<string, string | undefined> = process.env,
 ): boolean {

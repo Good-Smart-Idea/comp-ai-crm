@@ -1,17 +1,20 @@
-/** Typed ElevenLabs API surface used by @gsi/clients. */
+import { z } from "zod";
 
-export interface ElevenLabsVoice {
-	voice_id: string;
-	name: string;
-	category?: string;
-	description?: string | null;
-	preview_url?: string | null;
-	labels?: Record<string, string>;
-}
+export const elevenLabsVoiceSchema = z.object({
+	voice_id: z.string(),
+	name: z.string(),
+	category: z.string().optional(),
+	description: z.string().nullable().optional(),
+	preview_url: z.string().nullable().optional(),
+	labels: z.record(z.string(), z.string()).optional(),
+});
 
-export interface ListVoicesResult {
-	voices: ElevenLabsVoice[];
-}
+export const listVoicesResultSchema = z.object({
+	voices: z.array(elevenLabsVoiceSchema),
+});
+
+export type ElevenLabsVoice = z.infer<typeof elevenLabsVoiceSchema>;
+export type ListVoicesResult = z.infer<typeof listVoicesResultSchema>;
 
 export interface TextToSpeechRequest {
 	text: string;

@@ -3,6 +3,7 @@ import {
 	type ElevenLabsErrorCode,
 	type ElevenLabsResult,
 	type ListVoicesResult,
+	listVoicesResultSchema,
 	type TextToSpeechRequest,
 	type TextToSpeechResult,
 } from "./types.js";
@@ -142,7 +143,7 @@ export class ElevenLabsClient {
 		const res = await this.request("/voices", { method: "GET" });
 		if (!res.ok) return res;
 		try {
-			const data = (await res.data.json()) as ListVoicesResult;
+			const data = listVoicesResultSchema.parse(await res.data.json());
 			return { ok: true, data };
 		} catch (err) {
 			return {

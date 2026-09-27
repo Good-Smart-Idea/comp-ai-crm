@@ -11,6 +11,11 @@ are in `docs/setup.md`.
 
 ## Model
 
+All model calls use the governed gateway. Ollama is the default vendor.
+OpenRouter requires an explicit user action and `userRequestedOpenRouter: true`.
+The wrapper sends `X-GSI-Gateway-Vendor` and uses a 30-second default timeout.
+It reports transport, timeout, HTTP, and response-contract failures.
+
 Default `zai/glm-5.2-fast`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
 agent and the API both need it.
 

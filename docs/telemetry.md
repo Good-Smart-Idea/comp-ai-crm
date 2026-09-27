@@ -119,6 +119,9 @@ value, or last-four is sent.
 | `tasks_claimed` / `tasks_completed` / `tasks_retired` | `AgentTask` counts keyed by `kind` |
 | `task_attempts_mean` / `task_attempts_max` | Attempts per kind |
 | `budget_exhausted` | Sessions that stopped because the research budget ran out. Once per session, not once per blocked tool call |
+| `bright_data_requests_total` | Bright Data Request API calls started |
+| `bright_data_requests_ok` | Bright Data Request API calls completed successfully |
+| `bright_data_requests_failed` | Bright Data Request API calls that returned an error outcome |
 | `recheck_scheduled` | `recheck` tasks queued in the window |
 | `recheck_interval_days` | Their intervals, in day bands |
 | `agent_conversations` | How many `AgentConversation` rows exist |
@@ -309,7 +312,7 @@ actually drops it. See `adrs/telemetry.md`.
 | `packages/telemetry` | The only place `posthog-node` is imported. Allowlist, install accessor, event builders |
 | `install` table | The UUID, the version, and when the last rollup went. One row, made by the migration |
 | `telemetryMilestone` table | Which funnel steps have fired |
-| `telemetryCounter` table | The one runtime number no other row records — `budget_exhausted` — drained by each rollup and put back if the send fails |
+| `telemetryCounter` table | Runtime counters for budget exhaustion and Bright Data requests. Each rollup drains them and restores them after send failure |
 | `packages/telemetry/src/project.ts` | The key, the ingest host and the UI host. Three constants, no imports, so the browser can read them too |
 | `apps/api/src/telemetry` | The daily rollup, the funnel sweep, the boot-and-hourly timer, the optional cron route |
 | `apps/agent/agent/hooks/telemetry.ts` | Tool, turn and session failures |

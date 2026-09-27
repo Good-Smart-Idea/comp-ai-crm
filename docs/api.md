@@ -1,5 +1,12 @@
 # API Rules
 
+## Optional error reporting
+
+`SENTRY_DSN` enables API exception reporting. Missing configuration keeps
+reporting off. `SENTRY_ENVIRONMENT` and `SENTRY_RELEASE` label each event.
+The integration disables performance tracing. Exception data leaves the install
+only when an operator supplies a DSN.
+
 ## Logging
 
 `apps/api/src/logging`. `new Logger(Thing.name)` picks up `ContextLogger`. **Never

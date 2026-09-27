@@ -5,6 +5,10 @@ import {
 	brightDataConfigFromEnv,
 } from "../../src/bright-data";
 
+mock.module("@crm/telemetry/install", () => ({
+	bumpCounter: mock(() => Promise.resolve()),
+}));
+
 const KEYS = ["BRIGHTDATA_API_TOKEN", "BRIGHTDATA_UNLOCKER_ZONE"] as const;
 const saved: Record<string, string | undefined> = {};
 
@@ -39,6 +43,8 @@ describe("brightDataConfigFromEnv", () => {
 
 describe("BrightDataClient", () => {
 	it("reports not_configured without throwing when unset", async () => {
+		process.env.BRIGHTDATA_API_TOKEN = "live-token";
+		process.env.BRIGHTDATA_UNLOCKER_ZONE = "live-zone";
 		const client = new BrightDataClient(null);
 		const result = await client.fetchText({ url: "https://example.com" });
 

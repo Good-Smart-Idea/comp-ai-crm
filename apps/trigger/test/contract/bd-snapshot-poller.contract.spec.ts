@@ -53,9 +53,7 @@ describe("Bright Data snapshot poller (live contract)", () => {
 			const result = await pollBrightDataSnapshot(snapshotId);
 
 			expect(result.snapshotId).toBe(snapshotId);
-			// Terminal states from Bright Data's dataset API; "running" would
-			// mean we hit MAX_POLL_ATTEMPTS without the job finishing.
-			expect(["ready", "failed", "running"]).toContain(result.finalStatus);
+			expect(["ready", "failed"]).toContain(result.finalStatus);
 			expect(result.attempts).toBeGreaterThan(0);
 		},
 		180_000,

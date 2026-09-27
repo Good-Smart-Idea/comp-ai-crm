@@ -2,6 +2,7 @@ import { bdclient } from "@brightdata/sdk";
 import { bumpCounter } from "@crm/telemetry";
 import { logger, schedules, task } from "@trigger.dev/sdk";
 import { z } from "zod";
+import { SNAPSHOT_POLLER } from "./snapshot-poller-config";
 
 /**
  * CTRL-161: Bright Data dataset snapshot poller.
@@ -9,10 +10,8 @@ import { z } from "zod";
  * Bright Data's Dataset API is async: you trigger a collection job against
  * a dataset and get back a `snapshot_id`, then poll `datasets/v3/progress/:id`
  * until the job is no longer "running". This mirrors the same Bright Data
- * Request API surface already used in production by
- * apps/agent/agent/lib/company-research.ts and apps/agent/agent/lib/bd-client.ts
- * (both talk to api.brightdata.com), but for the dataset/snapshot workflow
- * instead of the synchronous Request API.
+ * Request API surface already used in production, but for the
+ * dataset/snapshot workflow instead of the synchronous Request API.
  *
  * Two tasks are exported:
  *   - `bdSnapshotPoll`      — polls one snapshot_id to completion and logs/
@@ -23,9 +22,6 @@ import { z } from "zod";
  *                             polls it, so we get a periodic live signal that
  *                             the Bright Data dataset pipeline still works.
  */
-
-const POLL_INTERVAL_MS = 5_000;
-const MAX_POLL_ATTEMPTS = 60; // ~5 minutes at 5s intervals
 
 const SnapshotStatus = z
 	.object({
@@ -43,6 +39,24 @@ export type SnapshotPollResult = {
 	elapsedMs: number;
 	recordCount?: number;
 	sampleRecord?: unknown;
+};
+
+export type SnapshotPollDependencies = {
+	fetch: typeof fetch;
+	sleep: (milliseconds: number) => Promise<void>;
+	now: () => number;
+	fetchSnapshot: (snapshotId: string, token: string) => Promise<unknown>;
+};
+
+const snapshotPollDependencies: SnapshotPollDependencies = {
+	fetch,
+	sleep: (milliseconds) =>
+		new Promise((resolve) => setTimeout(resolve, milliseconds)),
+	now: Date.now,
+	fetchSnapshot: async (snapshotId, token) => {
+		const client = new bdclient({ apiKey: token });
+		return client.scrape.snapshot.fetch(snapshotId, { format: "json" });
+	},
 };
 
 function brightDataApiToken(): string | null {
@@ -66,6 +80,7 @@ function authHeader(token: string): string {
  */
 export async function pollBrightDataSnapshot(
 	snapshotId: string,
+	dependencies: SnapshotPollDependencies = snapshotPollDependencies,
 ): Promise<SnapshotPollResult> {
 	const token = brightDataApiToken();
 	if (!token) {
@@ -74,15 +89,15 @@ export async function pollBrightDataSnapshot(
 		);
 	}
 
-	const startedAt = Date.now();
+	const startedAt = dependencies.now();
 	let attempts = 0;
 	let lastStatus: z.infer<typeof SnapshotStatus> | null = null;
 
-	while (attempts < MAX_POLL_ATTEMPTS) {
+	while (attempts < SNAPSHOT_POLLER.poll.maxAttempts) {
 		attempts += 1;
 		void bumpCounter("bright_data_snapshot_poll_attempts");
 
-		const res = await fetch(
+		const res = await dependencies.fetch(
 			`https://api.brightdata.com/datasets/v3/progress/${snapshotId}`,
 			{ headers: { Authorization: authHeader(token) } },
 		);
@@ -110,23 +125,25 @@ export async function pollBrightDataSnapshot(
 		});
 
 		if (lastStatus.status !== "running") break;
-		await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+		await dependencies.sleep(SNAPSHOT_POLLER.poll.intervalMs);
 	}
 
 	if (!lastStatus) {
 		throw new Error("Bright Data snapshot poll never received a status.");
 	}
+	if (lastStatus.status === "running") {
+		throw new Error(
+			`Snapshot ${snapshotId} exceeded ${SNAPSHOT_POLLER.poll.maxAttempts} attempts.`,
+		);
+	}
 
-	const elapsedMs = Date.now() - startedAt;
+	const elapsedMs = dependencies.now() - startedAt;
 
 	let recordCount: number | undefined;
 	let sampleRecord: unknown;
 	if (lastStatus.status === "ready") {
 		try {
-			const client = new bdclient({ apiKey: token });
-			const data = await client.scrape.snapshot.fetch(snapshotId, {
-				format: "json",
-			});
+			const data = await dependencies.fetchSnapshot(snapshotId, token);
 			if (Array.isArray(data)) {
 				recordCount = data.length;
 				sampleRecord = data[0];
@@ -183,16 +200,15 @@ export const bdSnapshotPoll = task({
  * URL) and poll it end-to-end. This is a live liveness check for the
  * Bright Data dataset pipeline, independent of any one CRM feature.
  *
- * Disabled by default in the dev environment (see trigger.config.ts
- * retries.enabledInDev) to avoid burning Bright Data quota on every
- * `trigger dev` session; the cron fires in deployed (staging/prod)
- * environments only.
  */
 export const bdSnapshotPollCron = schedules.task({
 	id: "bd-snapshot-poll-cron",
 	cron: "0 */6 * * *",
 	maxDuration: 360,
 	run: async () => {
+		if (process.env.NODE_ENV === "development") {
+			return { skipped: true, reason: "Development schedules are disabled" };
+		}
 		const token = brightDataApiToken();
 		if (!token) {
 			logger.warn("bd_snapshot_poll_cron_skipped_not_configured");
@@ -200,10 +216,11 @@ export const bdSnapshotPollCron = schedules.task({
 		}
 
 		const datasetId =
-			process.env.BRIGHTDATA_HEARTBEAT_DATASET_ID ?? "gd_l1vijqt9jfj7olije"; // Crunchbase companies information
+			process.env.BRIGHTDATA_HEARTBEAT_DATASET_ID ??
+			SNAPSHOT_POLLER.heartbeat.datasetId;
 		const targetUrl =
 			process.env.BRIGHTDATA_HEARTBEAT_URL ??
-			"https://www.crunchbase.com/organization/openai";
+			SNAPSHOT_POLLER.heartbeat.targetUrl;
 
 		const triggerRes = await fetch(
 			`https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&include_errors=true`,

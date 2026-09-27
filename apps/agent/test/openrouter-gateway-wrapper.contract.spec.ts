@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { runAgentGatewayCall } from "../agent/lib/agent-gateway";
 import { callModelGateway } from "../agent/lib/model-gateway";
 
 /**
@@ -24,13 +25,17 @@ describe.skipIf(!baseURL)(
 			expect(result.raw).toBeDefined();
 		});
 
-		it("a real OpenRouter call, only reachable via userRequestedOpenRouter, returns the same shape", async () => {
-			const result = await callModelGateway(
-				process.env.GSI_MODEL_GATEWAY_TEST_OPENROUTER_MODEL?.trim() ??
+		it("a real OpenRouter call through explicit agent policy returns the same shape", async () => {
+			const result = await runAgentGatewayCall({
+				model:
+					process.env.GSI_MODEL_GATEWAY_TEST_OPENROUTER_MODEL?.trim() ??
 					"openai/gpt-4o-mini",
-				[{ role: "user", content: "Reply with the single word: pong" }],
-				{ vendor: "openrouter", timeoutMs: 20_000 },
-			);
+				messages: [
+					{ role: "user", content: "Reply with the single word: pong" },
+				],
+				userRequestedOpenRouter: true,
+				timeoutMs: 20_000,
+			});
 			expect(result.vendor).toBe("openrouter");
 			expect(result.content.length).toBeGreaterThan(0);
 			expect(result.raw).toBeDefined();

@@ -214,6 +214,9 @@ export class RollupService {
 			task_attempts_max: attempts.max,
 
 			budget_exhausted: counters.budget_exhausted ?? 0,
+			bright_data_requests_total: counters.bright_data_requests_total ?? 0,
+			bright_data_requests_ok: counters.bright_data_requests_ok ?? 0,
+			bright_data_requests_failed: counters.bright_data_requests_failed ?? 0,
 
 			recheck_scheduled: rechecks.total,
 			recheck_interval_days: rechecks.buckets,

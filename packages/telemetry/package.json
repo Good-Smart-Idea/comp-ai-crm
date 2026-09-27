@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./allowlist": "./src/allowlist.ts",
+		"./counters": "./src/counters.ts",
 		"./install": "./src/install.ts",
 		"./project": "./src/project.ts"
 	},

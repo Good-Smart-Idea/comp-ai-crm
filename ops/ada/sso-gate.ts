@@ -5,13 +5,14 @@
  * is not seeded in the DB gets 403; absence of the header proxies through to the normal
  * sign-in page untouched. Never auto-provisions.
  */
+
+import { createHmac } from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import http from "node:http";
 import { auth } from "@crm/auth";
 import { db } from "@crm/db";
-import { createHmac, randomBytes } from "node:crypto";
-import http from "node:http";
-import type { IncomingMessage, ServerResponse } from "node:http";
 
-const HEADER = "cf-access-authenticated-user-email";
+export const ACCESS_EMAIL_HEADER = "cf-access-authenticated-user-email";
 const UP_HOST = process.env.GATE_UPSTREAM_HOST ?? "app";
 const UP_PORT = Number(process.env.GATE_UPSTREAM_PORT ?? 3000);
 // REST bridge (app /api/* and raw /rest/*) goes straight to the internal API
@@ -34,7 +35,7 @@ function proxy(
 	target?: { host: string; port: number; path: string },
 ) {
 	const headers = { ...req.headers };
-	delete headers[HEADER]; // never forward Access headers (spoof safety, mirrors BrightBean PR #410)
+	delete headers[ACCESS_EMAIL_HEADER]; // never forward Access headers (spoof safety, mirrors BrightBean PR #410)
 	if (extraCookie) {
 		headers.cookie = headers.cookie
 			? `${headers.cookie}; ${extraCookie}`
@@ -60,33 +61,34 @@ function proxy(
 	req.pipe(up);
 }
 
-async function cfSignIn(emailLower: string) {
+export async function cfSignIn(emailLower: string) {
 	const user = await db.user.findUnique({ where: { email: emailLower } });
 	if (!user) return { forbidden: true } as const;
-	const ctx = await (auth as any).$context;
-	let token: string;
-	try {
-		const session = await ctx.internalAdapter.createSession(user.id);
-		token = session.token;
-	} catch {
-		// fallback: create the better-auth session row directly (same shape as prisma adapter)
-		token = randomBytes(32).toString("hex");
-		await db.session.create({
-			data: {
-				id: token,
-				token,
-				userId: user.id,
-				expiresAt: new Date(Date.now() + SESSION_DAYS * 864e5),
-				ipAddress: null,
-				userAgent: "cfaccess-gate",
-			},
-		});
-	}
+	const ctx = await (
+		auth as unknown as {
+			$context: Promise<{
+				internalAdapter: {
+					createSession: (userId: string) => Promise<{ token: string }>;
+				};
+				options: { secret: string };
+			}>;
+		}
+	).$context;
+	const session = await ctx.internalAdapter.createSession(user.id);
+	const token = session.token;
 	const secret: string = ctx.options.secret;
 	// better-auth ≥1.6 (better-call getSignedCookie) verifies a standard padded
 	// base64 HMAC-SHA-256 signature (44 chars, "="-terminated) over the raw token.
-	const sig = createHmac("sha256", secret).update(token).digest("base64");
-	return { forbidden: false, user, cookieValue: `${token}.${sig}` } as const;
+	return {
+		forbidden: false,
+		user,
+		cookieValue: signSessionToken(token, secret),
+	} as const;
+}
+
+export function signSessionToken(token: string, secret: string): string {
+	const signature = createHmac("sha256", secret).update(token).digest("base64");
+	return `${token}.${signature}`;
 }
 
 function restCookies(cookieHeader: string | undefined): string | undefined {
@@ -114,45 +116,56 @@ function parseAccessEmailHeader(raw: string | string[] | undefined): string {
 	return trimmed ? trimmed.toLowerCase() : "";
 }
 
-const server = http.createServer(async (req, res) => {
-	try {
-		const email = parseAccessEmailHeader(req.headers[HEADER]);
-		delete (req.headers as any)[HEADER];
-		if (!email) {
-			if (REST_PATH_RE.test(req.url ?? "")) {
-				// No Access header but an existing session cookie: still route the REST
-				// bridge to the API (it validates the signed token itself; bad token → 401).
-				routeRest(req, res, restCookies(req.headers.cookie));
+type SignInResult = Awaited<ReturnType<typeof cfSignIn>>;
+
+export function createSsoGate(
+	signIn: (email: string) => Promise<SignInResult> = cfSignIn,
+) {
+	return http.createServer(async (req, res) => {
+		try {
+			const email = parseAccessEmailHeader(req.headers[ACCESS_EMAIL_HEADER]);
+			delete req.headers[ACCESS_EMAIL_HEADER];
+			if (!email) {
+				if (REST_PATH_RE.test(req.url ?? "")) {
+					// No Access header but an existing session cookie: still route the REST
+					// bridge to the API (it validates the signed token itself; bad token → 401).
+					routeRest(req, res, restCookies(req.headers.cookie));
+					return;
+				}
+				proxy(req, res); // no header → normal (local) sign-in path, untouched
 				return;
 			}
-			proxy(req, res); // no header → normal (local) sign-in path, untouched
-			return;
+			const r = await signIn(email);
+			if (r.forbidden) {
+				res.writeHead(403, { "content-type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error: "Forbidden: unknown Cloudflare Access user",
+					}),
+				);
+				return;
+			}
+			const cookies = `${COOKIE_NAME}=${r.cookieValue}; ${SECURE_COOKIE_NAME}=${r.cookieValue}`;
+			if (REST_PATH_RE.test(req.url ?? "")) {
+				// REST bridge: /rest/* direct to the API, /api/rest/* with the app-facing
+				// prefix stripped (public ingress strips /api before the API; internal service does not)
+				routeRest(req, res, cookies);
+				return;
+			}
+			const setCookie = `${COOKIE_NAME}=${r.cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
+			res.setHeader("Set-Cookie", setCookie);
+			proxy(req, res, cookies);
+		} catch (e) {
+			console.error("cfaccess-gate error", e);
+			if (!res.headersSent)
+				res.writeHead(500, { "content-type": "text/plain" });
+			res.end("cfaccess-gate: internal error");
 		}
-		const r = await cfSignIn(email);
-		if (r.forbidden) {
-			res.writeHead(403, { "content-type": "application/json" });
-			res.end(
-				JSON.stringify({ error: "Forbidden: unknown Cloudflare Access user" }),
-			);
-			return;
-		}
-		const cookies = `${COOKIE_NAME}=${r.cookieValue}; ${SECURE_COOKIE_NAME}=${r.cookieValue}`;
-		if (REST_PATH_RE.test(req.url ?? "")) {
-			// REST bridge: /rest/* direct to the API, /api/rest/* with the app-facing
-			// prefix stripped (public ingress strips /api before the API; internal service does not)
-			routeRest(req, res, cookies);
-			return;
-		}
-		const setCookie = `${COOKIE_NAME}=${r.cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
-		res.setHeader("Set-Cookie", setCookie);
-		proxy(req, res, cookies);
-	} catch (e) {
-		console.error("cfaccess-gate error", e);
-		if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain" });
-		res.end("cfaccess-gate: internal error");
-	}
-});
+	});
+}
 
-server.listen(3000, () =>
-	console.log(`cfaccess-gate listening :3000 → ${UP_HOST}:${UP_PORT}`),
-);
+if (import.meta.main) {
+	createSsoGate().listen(3000, () =>
+		console.log(`cfaccess-gate listening :3000 → ${UP_HOST}:${UP_PORT}`),
+	);
+}

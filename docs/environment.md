@@ -117,6 +117,7 @@ single place that knows what is set.
 | `GSI_MODEL_GATEWAY_BASE_URL` + `GSI_MODEL_GATEWAY_API_KEY` | Managed OpenAI-compatible model gateway |
 | `GSI_MODEL_CATALOG_URL` | Governed model catalog with source and cost metadata |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
+| `ELEVENLABS_API_KEY` | Optional shared voice and text-to-speech client |
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`
 because the API and the seed write pictures too. The Next.js app is deliberately
@@ -140,6 +141,21 @@ Ada injects `GSI_MODEL_GATEWAY_BASE_URL`, `GSI_MODEL_GATEWAY_API_KEY`, and
 OpenRouter, OpenCode, Hugging Face, and approved Max-plan proxy routes. The catalog
 supplies the model source and cost metadata. A missing catalog preserves the local,
 no-spend default. Credentials are never shared between users or providers.
+
+Ollama is the default vendor. OpenRouter requires an explicit user action.
+The agent passes `userRequestedOpenRouter: true` for that action. The gateway
+receives `X-GSI-Gateway-Vendor` and applies a 30-second default timeout.
+Gateway errors stay visible to the caller.
+
+## Optional operations services
+
+`TRIGGER_API_URL`, `TRIGGER_SECRET_KEY`, and `TRIGGER_PROJECT_REF` configure the
+Trigger.dev worker. `BRIGHTDATA_HEARTBEAT_DATASET_ID` and
+`BRIGHTDATA_HEARTBEAT_URL` override the heartbeat targets. See `trigger.md`.
+
+`SENTRY_DSN` enables API exception reporting. `SENTRY_ENVIRONMENT` labels the
+deployment. `SENTRY_RELEASE` labels the revision. Missing values disable
+reporting. Performance tracing stays disabled.
 
 ## Mailbox sync
 

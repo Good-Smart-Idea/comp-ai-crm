@@ -1,5 +1,14 @@
 # Setup and local development
 
+## Trigger.dev worker
+
+`apps/trigger` owns scheduled and on-demand background tasks. Configure
+`TRIGGER_API_URL`, `TRIGGER_SECRET_KEY`, and `TRIGGER_PROJECT_REF` in the root
+`.env`. Run `bun run --filter=@crm/trigger dev` for local work. Run
+`bun run --filter=@crm/trigger deploy` for a reviewed deployment. The Bright
+Data heartbeat runs every six hours in deployed environments. Development runs
+skip paid snapshot creation.
+
 Operational detail moved out of the rule docs. `api.md`, `agent.md` and
 `environment.md` are what agents read before changing code; this is what a person
 reads once.

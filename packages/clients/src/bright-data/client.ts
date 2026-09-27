@@ -1,4 +1,5 @@
-import { bumpCounter } from "@crm/telemetry";
+import { COUNTERS } from "@crm/telemetry/counters";
+import { bumpCounter } from "@crm/telemetry/install";
 
 /**
  * Configuration required to talk to Bright Data's Request API
@@ -58,10 +59,6 @@ export type BrightDataResult<T> =
 const DEFAULT_TIMEOUT_MS = 20_000;
 const REQUEST_URL = "https://api.brightdata.com/request";
 
-const METRIC_ATTEMPT = "bright_data_requests_total";
-const METRIC_OK = "bright_data_requests_ok";
-const METRIC_FAILED = "bright_data_requests_failed";
-
 /**
  * Reads Bright Data credentials from the environment.
  * Returns null (never throws) when the workspace has not configured
@@ -86,7 +83,7 @@ export class BrightDataClient {
 	private readonly config: BrightDataConfig | null;
 
 	constructor(config?: BrightDataConfig | null) {
-		this.config = config ?? brightDataConfigFromEnv();
+		this.config = config === undefined ? brightDataConfigFromEnv() : config;
 	}
 
 	available(): boolean {
@@ -101,10 +98,10 @@ export class BrightDataClient {
 	async fetchText(
 		options: BrightDataRequestOptions,
 	): Promise<BrightDataResult<string>> {
-		void bumpCounter(METRIC_ATTEMPT);
+		void bumpCounter(COUNTERS.brightDataRequests);
 
 		if (!this.config) {
-			void bumpCounter(METRIC_FAILED);
+			void bumpCounter(COUNTERS.brightDataFailed);
 			return {
 				outcome: "error",
 				error: new BrightDataError(
@@ -135,7 +132,7 @@ export class BrightDataClient {
 				signal: AbortSignal.timeout(timeoutMs),
 			});
 		} catch (cause) {
-			void bumpCounter(METRIC_FAILED);
+			void bumpCounter(COUNTERS.brightDataFailed);
 			const timedOut = cause instanceof Error && cause.name === "TimeoutError";
 			return {
 				outcome: "error",
@@ -154,7 +151,7 @@ export class BrightDataClient {
 		}
 
 		if (!response.ok) {
-			void bumpCounter(METRIC_FAILED);
+			void bumpCounter(COUNTERS.brightDataFailed);
 			return {
 				outcome: "error",
 				error: interpretHttpError(response),
@@ -163,10 +160,10 @@ export class BrightDataClient {
 
 		try {
 			const data = await response.text();
-			void bumpCounter(METRIC_OK);
+			void bumpCounter(COUNTERS.brightDataSucceeded);
 			return { outcome: "ok", data, status: response.status };
 		} catch (cause) {
-			void bumpCounter(METRIC_FAILED);
+			void bumpCounter(COUNTERS.brightDataFailed);
 			return {
 				outcome: "error",
 				error: new BrightDataError(

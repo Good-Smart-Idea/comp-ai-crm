@@ -84,7 +84,7 @@ on the host (checked all app containers, all `/opt/gsi/apps/*/.env`):
 
 | Capability | Gating env | Status |
 |---|---|---|
-| Web research (citations, LinkedIn-slug search) | `PERPLEXITY_API_KEY` | **off — no key anywhere** |
+| Web research (citations, LinkedIn-slug search) | managed Bright Data connector | **off — not set** |
 | Company research (official pages / search) | `BRIGHTDATA_API_TOKEN`, `BRIGHTDATA_UNLOCKER_*`, `BRIGHTDATA_SERP_*` | **off — not set** |
 | Person research | managed connector (same Bright Data set) | **off — not set** |
 | Picture storage (logos/avatars) | `BLOB_READ_WRITE_TOKEN` | **off — not set** |
@@ -94,3 +94,6 @@ executed live), the managed model gateway routing (OpenRouter, currently serving
 `deepseek/deepseek-v4-flash` for this workspace). Making the research/picture
 capabilities real requires provisioning the four credentials above — that is a
 provisioning/purchasing decision, not a code fix.
+
+This incident predates the managed Bright Data connector. `PERPLEXITY_API_KEY`
+is retired and no longer enables research.

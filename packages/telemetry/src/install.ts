@@ -2,6 +2,7 @@ import "@crm/env/load";
 
 import { createHash } from "node:crypto";
 import { db } from "@crm/db";
+import { COUNTERS } from "./counters";
 import { crmVersion } from "./version";
 
 export const INSTALL_ID = "install";
@@ -117,10 +118,6 @@ export async function reachedMilestones(): Promise<Milestone[]> {
 	}
 }
 
-export const COUNTERS = {
-	budgetExhausted: "budget_exhausted",
-} as const;
-
 export async function bumpCounter(name: string, by = 1): Promise<void> {
 	try {
 		await db.telemetryCounter.upsert({
@@ -137,6 +134,8 @@ export async function bumpCounter(name: string, by = 1): Promise<void> {
 		} catch {}
 	}
 }
+
+export { COUNTERS };
 
 export async function drainCounters(): Promise<Record<string, number>> {
 	try {
