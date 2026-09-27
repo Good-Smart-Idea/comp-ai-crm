@@ -138,4 +138,51 @@ describe("OpenRouter gateway wrapper — failure path", () => {
 		expect(threw).toBeInstanceOf(ModelGatewayError);
 		expect(elapsed).toBeLessThan(5_000);
 	});
+
+	it("keeps the timeout active while reading the response body", async () => {
+		process.env.GSI_MODEL_GATEWAY_BASE_URL = "https://gateway.example/v1";
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (async (_input, init) =>
+			({
+				ok: true,
+				json: () =>
+					new Promise((_resolve, reject) => {
+						init?.signal?.addEventListener(
+							"abort",
+							() => reject(new DOMException("Aborted", "AbortError")),
+							{ once: true },
+						);
+					}),
+			}) as Response) as typeof fetch;
+
+		try {
+			await expect(
+				callModelGateway("test-model", [{ role: "user", content: "ping" }], {
+					timeoutMs: 20,
+				}),
+			).rejects.toThrow("timed out after 20ms");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it("reports controlled HTTP and response-shape failures", async () => {
+		process.env.GSI_MODEL_GATEWAY_BASE_URL = "https://gateway.example/v1";
+		const originalFetch = globalThis.fetch;
+		try {
+			globalThis.fetch = (async () =>
+				new Response("unavailable", { status: 503 })) as typeof fetch;
+			await expect(
+				callModelGateway("test-model", [{ role: "user", content: "ping" }]),
+			).rejects.toThrow("returned 503: unavailable");
+
+			globalThis.fetch = (async () =>
+				Response.json({ choices: [] })) as typeof fetch;
+			await expect(
+				callModelGateway("test-model", [{ role: "user", content: "ping" }]),
+			).rejects.toThrow("unexpected shape");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
 });

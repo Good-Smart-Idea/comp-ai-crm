@@ -101,4 +101,60 @@ describe("ElevenLabsClient unit (no network)", () => {
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.message).toContain("Failed to parse");
 	});
+
+	test("keeps the timeout active while reading a successful body", async () => {
+		const client = new ElevenLabsClient({
+			apiKey: "unit-test-key",
+			timeoutMs: 20,
+			fetchImpl: (async (_input, init) =>
+				({
+					ok: true,
+					json: () =>
+						new Promise((_resolve, reject) => {
+							init?.signal?.addEventListener(
+								"abort",
+								() => reject(new DOMException("Aborted", "AbortError")),
+								{ once: true },
+							);
+						}),
+				}) as Response) as typeof fetch,
+		});
+
+		const result = await client.listVoices();
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe("network_error");
+			expect(result.error.message).toBe("ElevenLabs request timed out");
+		}
+	});
+
+	test("textToSpeech sends defaults and returns audio bytes", async () => {
+		let request: Request | undefined;
+		const client = new ElevenLabsClient({
+			apiKey: "unit-test-key",
+			baseUrl: "https://elevenlabs.example/v1",
+			fetchImpl: async (input, init) => {
+				request = new Request(input, init);
+				return new Response(new Uint8Array([1, 2]), {
+					headers: { "content-type": "audio/mpeg" },
+				});
+			},
+		});
+
+		const result = await client.textToSpeech({
+			text: "hello",
+			voiceId: "voice/id",
+		});
+		expect(result.ok).toBe(true);
+		expect(request?.url).toContain("voice%2Fid?output_format=mp3_44100_128");
+		expect(request?.headers.get("xi-api-key")).toBe("unit-test-key");
+		expect(await request?.json()).toEqual({
+			text: "hello",
+			model_id: "eleven_multilingual_v2",
+		});
+		if (result.ok) {
+			expect(new Uint8Array(result.data.audio)).toEqual(new Uint8Array([1, 2]));
+			expect(result.data.contentType).toBe("audio/mpeg");
+		}
+	});
 });

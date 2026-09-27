@@ -95,28 +95,66 @@ export async function callModelGateway(
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), timeoutMs);
-	if (options.signal) {
-		options.signal.addEventListener("abort", () => controller.abort());
-	}
+	let timedOut = false;
+	const timer = setTimeout(() => {
+		timedOut = true;
+		controller.abort();
+	}, timeoutMs);
+	const cancel = () => controller.abort();
+	options.signal?.addEventListener("abort", cancel, { once: true });
 
-	let response: Response;
 	try {
-		response = await fetch(`${baseURL.replace(/\/+$/, "")}/chat/completions`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${apiKey}`,
-				"X-GSI-Gateway-Vendor": vendor,
+		const response = await fetch(
+			`${baseURL.replace(/\/+$/, "")}/chat/completions`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${apiKey}`,
+					"X-GSI-Gateway-Vendor": vendor,
+				},
+				body: JSON.stringify({ model, messages }),
+				signal: controller.signal,
 			},
-			body: JSON.stringify({ model, messages }),
-			signal: controller.signal,
-		});
+		);
+
+		if (!response.ok) {
+			const body = await response.text().catch(() => "");
+			throw new ModelGatewayError(
+				`Model gateway call to ${vendor} returned ${response.status}: ${body.slice(0, 500)}`,
+				vendor,
+			);
+		}
+
+		const json: unknown = await response.json();
+		const parsed = gatewayChatCompletionSchema.safeParse(json);
+		if (!parsed.success) {
+			throw new ModelGatewayError(
+				`Model gateway call to ${vendor} returned an unexpected shape (no choices[0].message.content)`,
+				vendor,
+			);
+		}
+		const content = parsed.data.choices.at(0)?.message.content;
+		if (content === undefined) {
+			throw new ModelGatewayError(
+				`Model gateway call to ${vendor} returned an unexpected shape (no choices[0].message.content)`,
+				vendor,
+			);
+		}
+
+		return {
+			vendor,
+			model: parsed.data.model ?? model,
+			content,
+			raw: json,
+		};
 	} catch (error) {
-		clearTimeout(timer);
+		if (error instanceof ModelGatewayError) throw error;
 		if (error instanceof Error && error.name === "AbortError") {
 			throw new ModelGatewayError(
-				`Model gateway call to ${vendor} timed out after ${timeoutMs}ms`,
+				timedOut
+					? `Model gateway call to ${vendor} timed out after ${timeoutMs}ms`
+					: `Model gateway call to ${vendor} was cancelled`,
 				vendor,
 				error,
 			);
@@ -130,36 +168,6 @@ export async function callModelGateway(
 		);
 	} finally {
 		clearTimeout(timer);
+		options.signal?.removeEventListener("abort", cancel);
 	}
-
-	if (!response.ok) {
-		const body = await response.text().catch(() => "");
-		throw new ModelGatewayError(
-			`Model gateway call to ${vendor} returned ${response.status}: ${body.slice(0, 500)}`,
-			vendor,
-		);
-	}
-
-	const json: unknown = await response.json();
-	const parsed = gatewayChatCompletionSchema.safeParse(json);
-	if (!parsed.success) {
-		throw new ModelGatewayError(
-			`Model gateway call to ${vendor} returned an unexpected shape (no choices[0].message.content)`,
-			vendor,
-		);
-	}
-	const content = parsed.data.choices.at(0)?.message.content;
-	if (content === undefined) {
-		throw new ModelGatewayError(
-			`Model gateway call to ${vendor} returned an unexpected shape (no choices[0].message.content)`,
-			vendor,
-		);
-	}
-
-	return {
-		vendor,
-		model: parsed.data.model ?? model,
-		content,
-		raw: json,
-	};
 }

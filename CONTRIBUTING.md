@@ -37,7 +37,7 @@ bun run dev
 bun run check-types
 bun run lint
 bun run lint:slop
-bun run test
+bun run test:local
 ```
 
 All four run on CI, and `bun run format` fixes most of what `lint` complains about.
@@ -54,13 +54,14 @@ reason, and that is the only sanctioned way past it.
 **A `pre-push` hook runs them for you**, so a push that would fail CI fails on your machine
 instead, where the feedback is in seconds rather than minutes. `bun install` wires it up — the
 hooks live in `.githooks/` and `prepare` points `core.hooksPath` at them, so there is nothing to
-install and no hook manager in the dependency tree. Turbo caches, so a second push that changed
-nothing relevant is nearly free.
+install and no hook manager in the dependency tree. Turbo caches build work. Test tasks always run
+without cache because they share database state.
 
-It needs the Postgres from `docker compose up -d`, because the API and telemetry tests are real
-integration tests. When you need to push past it — a WIP branch, a docker-less machine, a red test
-you are deliberately pushing to ask about — `git push --no-verify` skips it, and `CRM_SKIP_HOOKS=1`
-skips it for a whole shell.
+`bun run test:local` starts the dedicated Postgres service on port 55432, applies migrations, and
+runs every package serially. See [Local tests](./docs/setup.md#tests) for lifecycle and reset
+commands. When you need to push past it — a WIP branch, a docker-less machine, a red test you are
+deliberately pushing to ask about — `git push --no-verify` skips it, and `CRM_SKIP_HOOKS=1` skips it
+for a whole shell.
 
 **The suite runs against `TEST_DATABASE_URL`, never `DATABASE_URL`, and refuses to start without
 it.** `bun run db:test` creates the database and migrates it; the name has to end in `_test`.

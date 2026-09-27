@@ -71,10 +71,11 @@ export class ElevenLabsClient {
 		this.timeoutMs = options.timeoutMs ?? 30_000;
 	}
 
-	private async request(
+	private async request<T>(
 		path: string,
 		init: RequestInit,
-	): Promise<ElevenLabsResult<Response>> {
+		read: (response: Response) => Promise<T>,
+	): Promise<ElevenLabsResult<T>> {
 		if (!this.apiKey) {
 			return {
 				ok: false,
@@ -118,8 +119,11 @@ export class ElevenLabsClient {
 				};
 			}
 
-			return { ok: true, data: res };
+			return { ok: true, data: await read(res) };
 		} catch (err) {
+			if (err instanceof ElevenLabsError) {
+				return { ok: false, error: err };
+			}
 			const isAbort = err instanceof Error && err.name === "AbortError";
 			return {
 				ok: false,
@@ -140,21 +144,18 @@ export class ElevenLabsClient {
 
 	/** List available voices for the authenticated account. */
 	async listVoices(): Promise<ElevenLabsResult<ListVoicesResult>> {
-		const res = await this.request("/voices", { method: "GET" });
-		if (!res.ok) return res;
-		try {
-			const data = listVoicesResultSchema.parse(await res.data.json());
-			return { ok: true, data };
-		} catch (err) {
-			return {
-				ok: false,
-				error: new ElevenLabsError(
+		return this.request("/voices", { method: "GET" }, async (response) => {
+			try {
+				return listVoicesResultSchema.parse(await response.json());
+			} catch (err) {
+				if (err instanceof Error && err.name === "AbortError") throw err;
+				throw new ElevenLabsError(
 					"unknown",
 					`Failed to parse voices response: ${(err as Error).message}`,
 					{ cause: err },
-				),
-			};
-		}
+				);
+			}
+		});
 	}
 
 	/** Generate speech audio for the given text + voice. Returns raw audio bytes. */
@@ -188,29 +189,28 @@ export class ElevenLabsClient {
 			};
 		}
 
-		const res = await this.request(
+		return this.request(
 			`/text-to-speech/${encodeURIComponent(req.voiceId)}?output_format=${encodeURIComponent(outputFormat)}`,
 			{
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(requestBody),
 			},
+			async (response) => {
+				try {
+					const audio = await response.arrayBuffer();
+					const contentType =
+						response.headers.get("content-type") ?? "audio/mpeg";
+					return { audio, contentType };
+				} catch (err) {
+					if (err instanceof Error && err.name === "AbortError") throw err;
+					throw new ElevenLabsError(
+						"unknown",
+						`Failed to read audio response: ${(err as Error).message}`,
+						{ cause: err },
+					);
+				}
+			},
 		);
-		if (!res.ok) return res;
-
-		try {
-			const audio = await res.data.arrayBuffer();
-			const contentType = res.data.headers.get("content-type") ?? "audio/mpeg";
-			return { ok: true, data: { audio, contentType } };
-		} catch (err) {
-			return {
-				ok: false,
-				error: new ElevenLabsError(
-					"unknown",
-					`Failed to read audio response: ${(err as Error).message}`,
-					{ cause: err },
-				),
-			};
-		}
 	}
 }

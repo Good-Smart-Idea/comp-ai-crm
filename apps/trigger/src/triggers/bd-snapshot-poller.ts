@@ -132,6 +132,7 @@ export async function pollBrightDataSnapshot(
 		throw new Error("Bright Data snapshot poll never received a status.");
 	}
 	if (lastStatus.status === "running") {
+		void bumpCounter("bright_data_snapshot_poll_failed");
 		throw new Error(
 			`Snapshot ${snapshotId} exceeded ${SNAPSHOT_POLLER.poll.maxAttempts} attempts.`,
 		);

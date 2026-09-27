@@ -169,6 +169,7 @@ reproduces the view.
 | `apps/agent` | The research agent — tools, skills, schedules, sandbox |
 | `apps/app` | Next.js front end · :3000 |
 | `apps/api` | NestJS API — HTTP, auth, tRPC, mailbox sync · :3001 |
+| `apps/trigger` | Trigger.dev background jobs |
 | `packages/db` | Prisma schema, migrations, shared Postgres client |
 | `packages/auth` | Better Auth config and the sign-in allow-list |
 | `packages/ui` | shadcn/ui components, the Tailwind theme |
@@ -299,7 +300,7 @@ ALLOWED_SIGN_IN="you@gmail.com"                  # a one-person install
 
 ## Configuration
 
-**There is one `.env`, at the root of the repo**, read by all three processes. Real
+**There is one `.env`, at the root of the repo**, read by all four processes. Real
 environment variables always win, so on a hosting platform you configure it there and
 the file is purely a local convenience.
 
@@ -321,7 +322,7 @@ short version:
 | --- | --- |
 | `bun run dev` | Prepare the local database, then run everything in dependency-aware watch mode |
 | `bun run build` | Build all apps and packages |
-| `bun run test` | Run the test suite |
+| `bun run test:local` | Start the test database, migrate it, and run the complete suite |
 | `bun run check-types` | `tsc --noEmit` everywhere |
 | `bun run lint` / `format` | [Biome](https://biomejs.dev) |
 | `bun run db:migrate` | Create and apply a migration |
@@ -338,7 +339,7 @@ would have set. It refuses to run with `NODE_ENV=production`.
 
 ## Deploying
 
-Three deployments and a Postgres: the Next.js app, the NestJS API, and the agent.
+Four deployments and a Postgres: the Next.js app, NestJS API, agent, and Trigger.dev worker.
 They are independent, and the only thing they must agree on is `DATABASE_URL` and
 `BETTER_AUTH_SECRET` — the API mints the session cookie and the app verifies it, so a
 mismatch is a redirect loop rather than an error.
@@ -353,6 +354,10 @@ redirect URIs. Set `CRON_SECRET` and point a scheduler at
 `apps/api/src/generated/server.ts` is committed and `build` must never regenerate it —
 the generator needs a newer GLIBC than most build images have. Regenerate locally and
 commit it with the router change that caused it.
+
+The Trigger.dev worker uses `TRIGGER_API_URL`, `TRIGGER_SECRET_KEY`, and
+`TRIGGER_PROJECT_REF`. See [the Trigger.dev worker guide](./docs/trigger.md) for setup,
+development, deployment, and task behavior.
 
 ## Contributing
 
