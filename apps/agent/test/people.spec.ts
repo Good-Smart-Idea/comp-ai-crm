@@ -3,6 +3,7 @@ import {
 	type EnrichedMatch,
 	MATCH_FLOOR,
 	matchFrom,
+	personFromManagedRecord,
 } from "../agent/lib/people";
 
 type Candidate = Extract<EnrichedMatch, { status: "candidate" }>;
@@ -52,6 +53,37 @@ const candidate = (person: Candidate["person"], score = 92): EnrichedMatch => ({
 });
 
 describe("reading a person out of an enrichment", () => {
+	it("maps a managed LinkedIn profile into a person", () => {
+		const result = matchFrom(
+			personFromManagedRecord(PROFILE, {
+				name: "Ada Lovelace",
+				city: "London",
+				current_company: {
+					name: "Analytical Engines",
+					title: "Founder",
+				},
+				experience: [
+					{
+						company: "Babbage Labs",
+						title: "Researcher",
+						end_date: "Present",
+					},
+				],
+			}),
+		);
+
+		expect(result.outcome).toBe("found");
+		if (result.outcome !== "found") return;
+		expect(result.person.firstName).toBe("Ada");
+		expect(result.person.lastName).toBe("Lovelace");
+		expect(result.person.location).toBe("London");
+		expect(result.person.profileUrl).toBe(PROFILE);
+		expect(result.person.currentRoles[0]?.title).toBe("Founder");
+		expect(result.person.currentRoles[0]?.organisation.name).toBe(
+			"Analytical Engines",
+		);
+	});
+
 	it("parses the profile, the roles and the dates", () => {
 		const result = matchFrom(candidate(PERSON));
 

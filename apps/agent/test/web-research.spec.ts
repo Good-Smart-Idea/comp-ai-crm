@@ -130,3 +130,74 @@ describe("CTRL-149: per-task Bright Data endpoint routing", () => {
 		expect(result.ok).toBe(false);
 	});
 });
+
+describe("Bright Data web research behavior", () => {
+	it("applies domain filters and limits answer evidence", async () => {
+		configure();
+		let requestUrl = "";
+		const { createWebResearch } = await import("../agent/lib/web-research");
+		const ask = createWebResearch(async (_url, init) => {
+			const request = JSON.parse(init.body ?? "{}");
+			requestUrl = request.url;
+			return {
+				response: Response.json({
+					organic: Array.from({ length: 10 }, (_, index) => ({
+						link: `https://example.com/${index}`,
+						title: `Result ${index}`,
+						description: `Evidence ${index}`,
+					})),
+				}),
+				url: new URL("https://api.brightdata.com/request"),
+			};
+		});
+
+		const result = await ask("Acme funding", { domains: ["example.com"] });
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(new URL(requestUrl).searchParams.get("q")).toContain(
+			"site:example.com",
+		);
+		expect(result.data.text.split("\n")).toHaveLength(3);
+		expect(result.data.citations).toHaveLength(8);
+	});
+
+	it("reports transport failures instead of empty results", async () => {
+		configure();
+		const { createWebResearch } = await import("../agent/lib/web-research");
+		const ask = createWebResearch(async () => null);
+
+		expect(await ask("Acme")).toEqual({
+			ok: false,
+			reason: "Bright Data did not answer.",
+		});
+	});
+
+	it("reports HTTP failures instead of empty results", async () => {
+		configure();
+		const { createWebResearch } = await import("../agent/lib/web-research");
+		const ask = createWebResearch(async () => ({
+			response: new Response("rate limited", { status: 429 }),
+			url: new URL("https://api.brightdata.com/request"),
+		}));
+
+		expect(await ask("Acme")).toEqual({
+			ok: false,
+			reason: "Bright Data returned HTTP 429.",
+		});
+	});
+
+	it("reports invalid JSON instead of empty results", async () => {
+		configure();
+		const { createWebResearch } = await import("../agent/lib/web-research");
+		const ask = createWebResearch(async () => ({
+			response: new Response("not-json"),
+			url: new URL("https://api.brightdata.com/request"),
+		}));
+
+		expect(await ask("Acme")).toEqual({
+			ok: false,
+			reason: "Bright Data returned invalid search data.",
+		});
+	});
+});

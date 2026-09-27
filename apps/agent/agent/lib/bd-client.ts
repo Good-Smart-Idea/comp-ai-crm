@@ -63,14 +63,7 @@ export type LinkedInCurrentCompany = z.infer<typeof linkedInCurrentCompany>;
 
 const sdkArrayEntry = z.record(z.string(), z.unknown());
 
-type ScrapeSdkResult = Awaited<
-	ReturnType<bdclient["scrape"]["linkedin"]["collectCompanies"]>
->;
-
-function firstEntry<T>(
-	schema: z.ZodType<T>,
-	result: ScrapeSdkResult,
-): T | null {
+function firstEntry<T>(schema: z.ZodType<T>, result: unknown): T | null {
 	if (result instanceof ScrapeJob) return null;
 	const asArray = z.array(sdkArrayEntry).safeParse(result);
 	if (asArray.success) {
@@ -90,6 +83,18 @@ function firstEntry<T>(
 	return parsed.success ? parsed.data : null;
 }
 
+export function parseLinkedInCompanyResult(
+	result: unknown,
+): LinkedInCompanyRecord | null {
+	return firstEntry(linkedInCompany, result);
+}
+
+export function parseLinkedInPersonResult(
+	result: unknown,
+): LinkedInPersonRecord | null {
+	return firstEntry(linkedInPerson, result);
+}
+
 export async function linkedInCompanyByUrl(
 	url: string,
 ): Promise<LinkedInCompanyRecord | null> {
@@ -97,7 +102,7 @@ export async function linkedInCompanyByUrl(
 	if (!bd) return null;
 	try {
 		const result = await bd.scrape.linkedin.collectCompanies([url], {});
-		return firstEntry(linkedInCompany, result);
+		return parseLinkedInCompanyResult(result);
 	} catch {
 		return null;
 	}
@@ -110,7 +115,7 @@ export async function linkedInPersonByUrl(
 	if (!bd) return null;
 	try {
 		const result = await bd.scrape.linkedin.collectProfiles([url], {});
-		return firstEntry(linkedInPerson, result);
+		return parseLinkedInPersonResult(result);
 	} catch {
 		return null;
 	}

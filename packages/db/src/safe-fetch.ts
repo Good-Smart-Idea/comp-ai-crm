@@ -201,8 +201,14 @@ function pinnedFetch(
 	},
 ): Promise<Response | null> {
 	return new Promise((resolve) => {
+		let settled = false;
+		const finish = (value: Response | null) => {
+			if (settled) return;
+			settled = true;
+			resolve(value);
+		};
 		if (input.signal?.aborted) {
-			resolve(null);
+			finish(null);
 			return;
 		}
 		const secure = target.protocol === "https:";
@@ -226,7 +232,7 @@ function pinnedFetch(
 					if (value !== undefined)
 						headers.set(name, Array.isArray(value) ? value.join(", ") : value);
 				}
-				resolve(
+				finish(
 					new Response(Readable.toWeb(response) as ReadableStream, {
 						status: response.statusCode ?? 502,
 						headers,
@@ -234,13 +240,16 @@ function pinnedFetch(
 				);
 			},
 		);
-		request.setTimeout(input.timeoutMs, () =>
-			request.destroy(new Error("Request timed out.")),
-		);
-		request.once("error", () => resolve(null));
+		request.setTimeout(input.timeoutMs, () => {
+			request.destroy(new Error("Request timed out."));
+			finish(null);
+		});
+		request.once("error", () => finish(null));
 		if (input.signal) {
-			const onAbort = () =>
+			const onAbort = () => {
 				request.destroy(new Error("The request was aborted."));
+				finish(null);
+			};
 			input.signal.addEventListener("abort", onAbort);
 			request.once("close", () =>
 				input.signal?.removeEventListener("abort", onAbort),

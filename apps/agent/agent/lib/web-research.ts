@@ -1,4 +1,5 @@
 import { safeFetch } from "@crm/db/safe-fetch";
+import { z } from "zod";
 
 // Open-web research via GSI's Bright Data escalation ladder — never Perplexity,
 // never BD_CLAUDE_PROXY (that proxy is reserved for Claude/Anthropic egress only).
@@ -52,6 +53,24 @@ type OrganicResult = {
 	description?: string;
 };
 
+type SearchOutcome =
+	| { ok: true; results: OrganicResult[] }
+	| { ok: false; reason: string };
+
+type WebResearchFetcher = typeof safeFetch;
+
+const searchResponse = z.object({
+	organic: z
+		.array(
+			z.object({
+				link: z.string().optional(),
+				title: z.string().optional(),
+				description: z.string().optional(),
+			}),
+		)
+		.optional(),
+});
+
 function authHeader(token: string): string {
 	return ["Bearer", token].join(" ");
 }
@@ -59,31 +78,47 @@ function authHeader(token: string): string {
 async function serpSearch(
 	terms: string,
 	cfg: BrightDataConfig,
-): Promise<OrganicResult[]> {
+	fetcher: WebResearchFetcher,
+): Promise<SearchOutcome> {
 	const search = new URL(SEARCH_ENGINE_URL);
 	search.searchParams.set("q", terms);
 	search.searchParams.set("brd_json", "1");
 
-	const result = await safeFetch(BRIGHT_DATA_REQUEST_URL, {
-		method: "POST",
-		timeoutMs: TIMEOUT_MS,
-		headers: {
-			authorization: authHeader(cfg.token),
-			"content-type": "application/json",
-			accept: "application/json",
-		},
-		body: JSON.stringify({
-			zone: cfg.serpZone,
-			url: search.toString(),
-			format: "raw",
-		}),
-	});
+	let result: Awaited<ReturnType<WebResearchFetcher>>;
+	try {
+		result = await fetcher(BRIGHT_DATA_REQUEST_URL, {
+			method: "POST",
+			timeoutMs: TIMEOUT_MS,
+			headers: {
+				authorization: authHeader(cfg.token),
+				"content-type": "application/json",
+				accept: "application/json",
+			},
+			body: JSON.stringify({
+				zone: cfg.serpZone,
+				url: search.toString(),
+				format: "raw",
+			}),
+		});
+	} catch {
+		return { ok: false, reason: "Bright Data did not answer." };
+	}
 
-	if (!result?.response.ok) return [];
-	const body = (await result.response.json().catch(() => null)) as {
-		organic?: OrganicResult[];
-	} | null;
-	return body?.organic ?? [];
+	if (!result) return { ok: false, reason: "Bright Data did not answer." };
+	if (!result.response.ok)
+		return {
+			ok: false,
+			reason: `Bright Data returned HTTP ${result.response.status}.`,
+		};
+	try {
+		const body = searchResponse.parse(await result.response.json());
+		return { ok: true, results: body.organic ?? [] };
+	} catch {
+		return {
+			ok: false,
+			reason: "Bright Data returned invalid search data.",
+		};
+	}
 }
 
 /**
@@ -96,30 +131,50 @@ async function serpSearch(
 async function unlockerFallbackSearch(
 	terms: string,
 	cfg: BrightDataConfig,
-): Promise<OrganicResult[]> {
-	if (!cfg.unlockerZone) return [];
+	fetcher: WebResearchFetcher,
+): Promise<SearchOutcome> {
+	if (!cfg.unlockerZone) return { ok: true, results: [] };
 
 	const search = new URL(SEARCH_ENGINE_URL);
 	search.searchParams.set("q", terms);
 
-	const result = await safeFetch(BRIGHT_DATA_REQUEST_URL, {
-		method: "POST",
-		timeoutMs: TIMEOUT_MS,
-		headers: {
-			authorization: authHeader(cfg.token),
-			"content-type": "application/json",
-			accept: "text/html",
-		},
-		body: JSON.stringify({
-			zone: cfg.unlockerZone,
-			url: search.toString(),
-			format: "raw",
-		}),
-	});
+	let result: Awaited<ReturnType<WebResearchFetcher>>;
+	try {
+		result = await fetcher(BRIGHT_DATA_REQUEST_URL, {
+			method: "POST",
+			timeoutMs: TIMEOUT_MS,
+			headers: {
+				authorization: authHeader(cfg.token),
+				"content-type": "application/json",
+				accept: "text/html",
+			},
+			body: JSON.stringify({
+				zone: cfg.unlockerZone,
+				url: search.toString(),
+				format: "raw",
+			}),
+		});
+	} catch {
+		return { ok: false, reason: "Bright Data did not answer." };
+	}
 
-	if (!result?.response.ok) return [];
-	const document = await result.response.text().catch(() => "");
-	return extractOrganicFromHtml(document);
+	if (!result) return { ok: false, reason: "Bright Data did not answer." };
+	if (!result.response.ok)
+		return {
+			ok: false,
+			reason: `Bright Data returned HTTP ${result.response.status}.`,
+		};
+	try {
+		return {
+			ok: true,
+			results: extractOrganicFromHtml(await result.response.text()),
+		};
+	} catch {
+		return {
+			ok: false,
+			reason: "Bright Data returned unreadable search data.",
+		};
+	}
 }
 
 function extractOrganicFromHtml(document: string): OrganicResult[] {
@@ -145,7 +200,8 @@ function extractOrganicFromHtml(document: string): OrganicResult[] {
  * exactly which BD lane produced each field. No LLM synthesis, no
  * Perplexity call.
  */
-export async function ask(
+async function askWith(
+	fetcher: WebResearchFetcher,
 	question: string,
 	options: AskOptions = {},
 ): Promise<Outcome<Answer>> {
@@ -159,16 +215,15 @@ export async function ask(
 	const terms = `${question}${domainFilter}`;
 
 	try {
-		let organic: OrganicResult[] = [];
+		const primary = await serpSearch(terms, cfg, fetcher);
+		let organic = primary.ok ? primary.results : [];
 		let source: AnswerSource = "serp";
-		try {
-			organic = await serpSearch(terms, cfg);
-		} catch {
-			organic = [];
-		}
 
 		if (organic.length === 0) {
-			organic = await unlockerFallbackSearch(terms, cfg);
+			const fallback = await unlockerFallbackSearch(terms, cfg, fetcher);
+			if (!fallback.ok) return fallback;
+			if (fallback.results.length === 0 && !primary.ok) return primary;
+			organic = fallback.results;
 			source = "unlocker-fallback";
 		}
 
@@ -194,6 +249,18 @@ export async function ask(
 			reason: error instanceof Error ? error.message : String(error),
 		};
 	}
+}
+
+export function createWebResearch(fetcher: WebResearchFetcher) {
+	return (question: string, options: AskOptions = {}) =>
+		askWith(fetcher, question, options);
+}
+
+export async function ask(
+	question: string,
+	options: AskOptions = {},
+): Promise<Outcome<Answer>> {
+	return askWith(safeFetch, question, options);
 }
 
 export async function findProfileUrls(

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { linkedInPersonByUrl } from "./bd-client";
+import { type LinkedInPersonRecord, linkedInPersonByUrl } from "./bd-client";
 import { companyResearch } from "./company-research";
 
 export const MATCH_FLOOR = 80;
@@ -163,6 +163,13 @@ async function personFromManagedProfile(
 ): Promise<EnrichedMatch | null> {
 	const record = await linkedInPersonByUrl(profileUrl);
 	if (!record) return null;
+	return personFromManagedRecord(profileUrl, record);
+}
+
+export function personFromManagedRecord(
+	profileUrl: string,
+	record: LinkedInPersonRecord,
+): EnrichedMatch {
 	const name = record.name ?? null;
 	const [first = null, ...rest] = name?.split(/\s+/) ?? [];
 	const last = rest.length > 0 ? rest.join(" ") : null;
