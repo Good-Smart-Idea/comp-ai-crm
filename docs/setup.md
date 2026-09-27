@@ -146,16 +146,53 @@ never reuse one from an example, a tutorial, or another environment.
 
 ## Tests
 
+Install dependencies before the first test run:
+
 ```sh
-bun run --filter=api test
-bun run --filter=agent test    # integration specs need DATABASE_URL + real Postgres
+bun install
 ```
+
+Run the complete local suite with one command:
+
+```sh
+bun run test:local
+```
+
+The command starts dedicated Postgres 17 on `127.0.0.1:55432`. It uses only the
+`crm_test` database. It waits for Postgres, applies every committed migration,
+and runs package tests serially without cached test results. It leaves Postgres
+running so later test runs start faster.
+
+Direct package tests still need an explicit test database URL:
+
+```sh
+TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/crm_test?schema=public" bun run --filter=api test
+TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/crm_test?schema=public" bun run --filter=agent test
+```
+
+Use these commands to inspect or stop the dedicated service:
+
+```sh
+docker compose -f docker-compose.test.yml logs postgres
+docker compose -f docker-compose.test.yml stop
+docker compose -f docker-compose.test.yml down
+docker compose -f docker-compose.test.yml down -v
+```
+
+The final command removes only the dedicated local test database volume. Use it
+to rebuild the database from an empty volume. A port conflict on `55432` prevents
+the service from starting. Stop the conflicting process, then run
+`bun run test:local` again.
 
 ### The test database rebuilds itself when it drifts
 
-`bun run db:test` creates `crm_test` and runs `migrate deploy` on it. The database
-name must end in `_test`; the suite deletes rows it expects to put back, so it
-refuses anything else.
+`bun run test:local` creates `crm_test` and runs `migrate deploy` on it. The
+database name must end in `_test`; the suite deletes rows it expects to put back,
+so it refuses anything else. Force a rebuild with both explicit URLs:
+
+```sh
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/crm_test?schema=public" TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/crm_test?schema=public" bun run db:test --reset
+```
 
 **`migrate deploy` only applies migrations that are missing. It never removes a
 table, a column or a constraint the database has and the schema does not.** A

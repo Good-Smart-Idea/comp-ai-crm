@@ -36,10 +36,18 @@ function proxy(
 	const headers = { ...req.headers };
 	delete headers[HEADER]; // never forward Access headers (spoof safety, mirrors BrightBean PR #410)
 	if (extraCookie) {
-		headers.cookie = headers.cookie ? `${headers.cookie}; ${extraCookie}` : extraCookie;
+		headers.cookie = headers.cookie
+			? `${headers.cookie}; ${extraCookie}`
+			: extraCookie;
 	}
 	const up = http.request(
-		{ host: target?.host ?? UP_HOST, port: target?.port ?? UP_PORT, path: target?.path ?? req.url, method: req.method, headers },
+		{
+			host: target?.host ?? UP_HOST,
+			port: target?.port ?? UP_PORT,
+			path: target?.path ?? req.url,
+			method: req.method,
+			headers,
+		},
 		(ur) => {
 			res.writeHead(ur.statusCode ?? 502, ur.headers);
 			ur.pipe(res);
@@ -88,7 +96,11 @@ function restCookies(cookieHeader: string | undefined): string | undefined {
 	return `${COOKIE_NAME}=${m[1]}; ${SECURE_COOKIE_NAME}=${m[1]}`;
 }
 
-function routeRest(req: IncomingMessage, res: ServerResponse, cookies?: string) {
+function routeRest(
+	req: IncomingMessage,
+	res: ServerResponse,
+	cookies?: string,
+) {
 	proxy(req, res, cookies, {
 		host: API_HOST,
 		port: API_PORT,
@@ -119,7 +131,9 @@ const server = http.createServer(async (req, res) => {
 		const r = await cfSignIn(email);
 		if (r.forbidden) {
 			res.writeHead(403, { "content-type": "application/json" });
-			res.end(JSON.stringify({ error: "Forbidden: unknown Cloudflare Access user" }));
+			res.end(
+				JSON.stringify({ error: "Forbidden: unknown Cloudflare Access user" }),
+			);
 			return;
 		}
 		const cookies = `${COOKIE_NAME}=${r.cookieValue}; ${SECURE_COOKIE_NAME}=${r.cookieValue}`;
@@ -139,4 +153,6 @@ const server = http.createServer(async (req, res) => {
 	}
 });
 
-server.listen(3000, () => console.log(`cfaccess-gate listening :3000 → ${UP_HOST}:${UP_PORT}`));
+server.listen(3000, () =>
+	console.log(`cfaccess-gate listening :3000 → ${UP_HOST}:${UP_PORT}`),
+);
