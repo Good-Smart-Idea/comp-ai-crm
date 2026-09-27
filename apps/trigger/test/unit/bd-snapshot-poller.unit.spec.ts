@@ -69,4 +69,46 @@ describe("pollBrightDataSnapshot", () => {
 			),
 		).rejects.toThrow("expected shape");
 	});
+
+	it("returns failed as a terminal state without fetching results", async () => {
+		process.env.BRIGHTDATA_API_TOKEN = "token";
+		const deps = dependencies([
+			Response.json({ status: "failed", snapshot_id: "sd_1" }),
+		]);
+		const { pollBrightDataSnapshot } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		const result = await pollBrightDataSnapshot("sd_1", deps);
+		expect(result.finalStatus).toBe("failed");
+		expect(deps.fetchSnapshot).not.toHaveBeenCalled();
+	});
+
+	it("throws when running snapshots exhaust the attempt limit", async () => {
+		process.env.BRIGHTDATA_API_TOKEN = "token";
+		const running = Array.from({ length: 60 }, () =>
+			Response.json({ status: "running", snapshot_id: "sd_1" }),
+		);
+		const { pollBrightDataSnapshot } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		await expect(
+			pollBrightDataSnapshot("sd_1", dependencies(running)),
+		).rejects.toThrow("exceeded 60 attempts");
+	});
+
+	it("preserves a ready poll when result retrieval fails", async () => {
+		process.env.BRIGHTDATA_API_TOKEN = "token";
+		const deps = dependencies([
+			Response.json({ status: "ready", snapshot_id: "sd_1" }),
+		]);
+		deps.fetchSnapshot = mock(async () => {
+			throw new Error("result unavailable");
+		});
+		const { pollBrightDataSnapshot } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		const result = await pollBrightDataSnapshot("sd_1", deps);
+		expect(result.finalStatus).toBe("ready");
+		expect(result.recordCount).toBeUndefined();
+	});
 });
