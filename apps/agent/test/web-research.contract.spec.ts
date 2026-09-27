@@ -1,15 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-/**
- * Real, live Bright Data contract test for CTRL-149's per-task endpoint
- * routing: confirms both lanes on the escalation ladder actually answer
- * against the live Bright Data API (no mocks), matching the convention in
- * packages/clients/test/contract/bright-data.contract.spec.ts and
- * apps/trigger/test/contract/bd-snapshot-poller.contract.spec.ts.
- *
- * Skips gracefully (does not fail CI) when Bright Data credentials are not
- * present in the environment.
- */
 const token = process.env.BRIGHTDATA_API_TOKEN?.trim();
 const serpZone = process.env.BRIGHTDATA_SERP_ZONE?.trim();
 const unlockerZone = process.env.BRIGHTDATA_UNLOCKER_ZONE?.trim();
@@ -44,12 +34,6 @@ describe("Bright Data per-task endpoint routing (live contract, CTRL-149)", () =
 			search.searchParams.set("q", "stripe.com");
 			search.searchParams.set("brd_json", "1");
 
-			// SERP is documented-flaky (CTRL-148/149: ~2/3 success rate, and BD
-			// itself sometimes answers "recently failed, retry after 15s" with a
-			// 200 and an empty/error body). Retry a few times against the real
-			// API rather than asserting a single flaky call always succeeds --
-			// the code-level fallback (unit-tested above) is what handles a
-			// still-empty SERP response in production.
 			let raw = "";
 			let ok = false;
 			for (let attempt = 0; attempt < 4 && raw.length === 0; attempt += 1) {
@@ -65,16 +49,11 @@ describe("Bright Data per-task endpoint routing (live contract, CTRL-149)", () =
 	);
 
 	runIf(
-		"Unlocker zone (fallback lane) fetches a real page and returns usable HTML",
+		"Unlocker zone fetches the production Google fallback target",
 		async () => {
-			// CTRL-149's own test matrix found Unlocker reliable against static
-			// pages (confirmed here) while a literal google.com/search fetch via
-			// this zone is itself flaky -- exactly why SERP stays primary and
-			// Unlocker is the fallback, not the other way round.
-			const res = await bdRequest(
-				unlockerZone as string,
-				"https://www.stripe.com",
-			);
+			const search = new URL("https://www.google.com/search");
+			search.searchParams.set("q", "stripe.com");
+			const res = await bdRequest(unlockerZone as string, search.toString());
 			expect(res.ok).toBe(true);
 			const html = await res.text();
 			expect(html.length).toBeGreaterThan(0);

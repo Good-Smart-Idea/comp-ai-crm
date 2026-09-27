@@ -4,16 +4,6 @@ import {
 	brightDataConfigFromEnv,
 } from "@gsi/clients/bright-data";
 
-/**
- * Agent app integration test: BrightDataClient is available as a shared,
- * typed wrapper for all consumers (company-research, future use cases, etc).
- *
- * This test confirms:
- * 1. The @gsi/clients package is installed and reachable from agent app
- * 2. The client can be instantiated with env-based config
- * 3. The client's typed error contract works as expected
- */
-
 const saved: Record<string, string | undefined> = {};
 
 function setup() {

@@ -6,16 +6,6 @@ const triggerResponseSchema = z.object({
 	snapshot_id: z.string().min(1),
 });
 
-/**
- * Real, live Bright Data contract test for CTRL-161. Requires
- * BRIGHTDATA_API_TOKEN to be set (skips otherwise, matching the
- * convention in packages/clients/test/contract/bright-data.contract.spec.ts).
- *
- * Triggers a real dataset collection job against Bright Data's Crunchbase
- * companies dataset, then polls it with the same poller used by the
- * deployed Trigger.dev task, proving the full trigger -> poll -> result
- * path works against the live Bright Data API (no mocks).
- */
 const token = process.env.BRIGHTDATA_API_TOKEN?.trim();
 const runIf = token ? it : it.skip;
 

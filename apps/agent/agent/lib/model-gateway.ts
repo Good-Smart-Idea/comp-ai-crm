@@ -41,14 +41,7 @@ function gatewayApiKey(): string {
 	return process.env.GSI_MODEL_GATEWAY_API_KEY?.trim() || "disabled";
 }
 
-/**
- * The ai-sdk-provider layer. Every call goes through the governed
- * GSI_MODEL_GATEWAY_BASE_URL gateway. `vendor` defaults to "ollama" and is
- * never inferred — a caller must explicitly pass "openrouter" (an explicit
- * user action) to reach it. There is no path that resolves an OpenRouter
- * call from ambient state.
- */
-export function gsiModel(
+function gsiModel(
 	id: string,
 	vendor: GatewayVendor = DEFAULT_VENDOR,
 ): ReturnType<OpenAIProvider["chat"]> {
@@ -62,7 +55,7 @@ export function gsiModel(
 	}).chat(id);
 }
 
-export interface GatewayCallOptions {
+interface GatewayCallOptions {
 	vendor?: GatewayVendor;
 	timeoutMs?: number;
 	signal?: AbortSignal;
@@ -75,16 +68,7 @@ export interface GatewayChatResult {
 	raw: unknown;
 }
 
-/**
- * The sdk layer. A minimal, dependency-light OpenAI-compatible client
- * against the governed gateway. Used by the agent and contract tests that
- * need the raw HTTP shape rather than the ai-sdk wrapper.
- *
- * Defaults to "ollama". Only an explicit `vendor: "openrouter"` reaches
- * OpenRouter, and only via the gateway base URL — never a raw
- * OPENROUTER_API_KEY.
- */
-export async function callModelGateway(
+async function callModelGateway(
 	model: string,
 	messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
 	options: GatewayCallOptions = {},
@@ -170,4 +154,35 @@ export async function callModelGateway(
 		clearTimeout(timer);
 		options.signal?.removeEventListener("abort", cancel);
 	}
+}
+
+export interface AgentGatewayRequest {
+	model: string;
+	messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+	userRequestedOpenRouter?: boolean;
+	timeoutMs?: number;
+	signal?: AbortSignal;
+}
+
+export function resolveVendor(
+	userRequestedOpenRouter?: boolean,
+): GatewayVendor {
+	return userRequestedOpenRouter ? "openrouter" : DEFAULT_VENDOR;
+}
+
+export async function runAgentGatewayCall(
+	request: AgentGatewayRequest,
+): Promise<GatewayChatResult> {
+	return callModelGateway(request.model, request.messages, {
+		vendor: resolveVendor(request.userRequestedOpenRouter),
+		timeoutMs: request.timeoutMs,
+		signal: request.signal,
+	});
+}
+
+export function agentModel(
+	model: string,
+	userRequestedOpenRouter?: boolean,
+): ReturnType<OpenAIProvider["chat"]> {
+	return gsiModel(model, resolveVendor(userRequestedOpenRouter));
 }

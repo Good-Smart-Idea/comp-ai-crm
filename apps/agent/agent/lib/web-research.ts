@@ -1,16 +1,6 @@
 import { safeFetch } from "@crm/db/safe-fetch";
 import { z } from "zod";
 
-// Open-web research via GSI's Bright Data escalation ladder — never Perplexity,
-// never BD_CLAUDE_PROXY (that proxy is reserved for Claude/Anthropic egress only).
-// Rung 1: Bright Data SERP zone for a search, reading organic result snippets.
-// Rung 2 (CTRL-149): when SERP times out or answers with zero organic results,
-// fall back to an Unlocker-fetched Google results page and scrape links out of
-// the raw HTML instead of surfacing a bare error to the CRM record. Escalation
-// to residential/unlocker zones for reading individual pages also lives in
-// company-research.ts (readWithZone) and is reused here where a citation needs
-// its page body rather than just a search snippet.
-
 const BRIGHT_DATA_REQUEST_URL = "https://api.brightdata.com/request";
 const SEARCH_ENGINE_URL = "https://www.google.com/search";
 const TIMEOUT_MS = 20_000;
@@ -20,7 +10,6 @@ export type AnswerSource = "serp" | "unlocker-fallback";
 export type Answer = {
 	text: string;
 	citations: string[];
-	/** Which Bright Data lane actually produced this answer (CTRL-149 provenance). */
 	source: AnswerSource;
 };
 
@@ -102,13 +91,6 @@ async function serpSearch(
 	return body.organic;
 }
 
-/**
- * Rung 2 fallback (CTRL-149): fetch the raw Google results page through the
- * Unlocker zone (which auto-bypasses CF/captcha) and scrape organic result
- * links + surrounding text out of the HTML. Used only when the SERP zone
- * times out or returns zero organic results, so a flaky SERP endpoint never
- * surfaces a bare error to the CRM record.
- */
 async function unlockerFallbackSearch(
 	terms: string,
 	cfg: BrightDataConfig,
@@ -157,15 +139,6 @@ function extractOrganicFromHtml(document: string): OrganicResult[] {
 	return results;
 }
 
-/**
- * Answers a research question using Bright Data's SERP zone as the primary
- * lane, with an automatic Unlocker-fetched-search-page fallback (CTRL-149)
- * when SERP times out or comes back empty. Returns organic-result snippets
- * as the answer text plus the result URLs as citations, and records which
- * lane (`source`) actually answered so a human reviewing a record can see
- * exactly which BD lane produced each field. No LLM synthesis, no
- * Perplexity call.
- */
 export async function ask(
 	question: string,
 	options: AskOptions = {},

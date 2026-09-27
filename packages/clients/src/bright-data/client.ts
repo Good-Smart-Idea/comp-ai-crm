@@ -1,28 +1,16 @@
 import { COUNTERS } from "@crm/telemetry/counters";
 import { bumpCounter } from "@crm/telemetry/install";
 
-/**
- * Configuration required to talk to Bright Data's Request API
- * (https://api.brightdata.com/request), the same endpoint already used in
- * production by apps/agent/agent/lib/company-research.ts.
- */
 export type BrightDataConfig = {
-	/** Bearer token for api.brightdata.com. */
 	apiToken: string;
-	/** Zone to route the request through (e.g. an Unlocker or SERP zone). */
 	zone: string;
 };
 
 export type BrightDataRequestOptions = {
-	/** Absolute https:// URL Bright Data should fetch on our behalf. */
 	url: string;
-	/** Override the configured zone for this call. */
 	zone?: string;
-	/** "raw" returns the page body as-is; Bright Data also supports "json". */
 	format?: "raw" | "json";
-	/** Extra headers Bright Data should send when fetching the target URL. */
 	headers?: Record<string, string>;
-	/** Per-call timeout; defaults to DEFAULT_TIMEOUT_MS. */
 	timeoutMs?: number;
 };
 
@@ -59,11 +47,6 @@ export type BrightDataResult<T> =
 const DEFAULT_TIMEOUT_MS = 20_000;
 const REQUEST_URL = "https://api.brightdata.com/request";
 
-/**
- * Reads Bright Data credentials from the environment.
- * Returns null (never throws) when the workspace has not configured
- * Bright Data yet — callers should treat that as "not available".
- */
 export function brightDataConfigFromEnv(
 	zoneEnvVar = "BRIGHTDATA_UNLOCKER_ZONE",
 ): BrightDataConfig | null {
@@ -72,13 +55,6 @@ export function brightDataConfigFromEnv(
 	return apiToken && zone ? { apiToken, zone } : null;
 }
 
-/**
- * Thin, typed wrapper around Bright Data's Request API, shared across
- * consumers (e.g. Comp AI CRM's company-research use case). Every call is
- * metered through @crm/telemetry counters so usage/cost rollups pick it up,
- * and every failure mode returns a typed BrightDataError instead of
- * throwing or hanging.
- */
 export class BrightDataClient {
 	private readonly config: BrightDataConfig | null;
 
@@ -90,11 +66,6 @@ export class BrightDataClient {
 		return this.config !== null;
 	}
 
-	/**
-	 * Fetch a URL through Bright Data and return the raw response text.
-	 * Never throws: network errors, timeouts, auth failures and rate
-	 * limits all come back as a typed BrightDataResult["error"].
-	 */
 	async fetchText(
 		options: BrightDataRequestOptions,
 	): Promise<BrightDataResult<string>> {
@@ -122,12 +93,12 @@ export class BrightDataClient {
 				headers: {
 					authorization: `Bearer ${this.config.apiToken}`,
 					"content-type": "application/json",
-					...options.headers,
 				},
 				body: JSON.stringify({
 					zone,
 					url: options.url,
 					format: options.format ?? "raw",
+					headers: options.headers,
 				}),
 				signal: AbortSignal.timeout(timeoutMs),
 			});

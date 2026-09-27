@@ -112,3 +112,86 @@ describe("pollBrightDataSnapshot", () => {
 		expect(result.recordCount).toBeUndefined();
 	});
 });
+
+describe("runSnapshotHeartbeat", () => {
+	it("skips development without making a request", async () => {
+		const fetchImpl = mock(async () => {
+			throw new Error("unexpected request");
+		}) as typeof fetch;
+		const poll = mock(async () => {
+			throw new Error("unexpected poll");
+		});
+		const { runSnapshotHeartbeat } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		const result = await runSnapshotHeartbeat({
+			env: { NODE_ENV: "development" },
+			fetch: fetchImpl,
+			poll,
+		});
+		expect(result).toEqual({
+			skipped: true,
+			reason: "Development schedules are disabled",
+		});
+		expect(fetchImpl).not.toHaveBeenCalled();
+		expect(poll).not.toHaveBeenCalled();
+	});
+
+	it("skips missing credentials without making a request", async () => {
+		const fetchImpl = mock(async () => new Response()) as typeof fetch;
+		const poll = mock(async () => {
+			throw new Error("unexpected poll");
+		});
+		const { runSnapshotHeartbeat } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		const result = await runSnapshotHeartbeat({
+			env: { NODE_ENV: "production" },
+			fetch: fetchImpl,
+			poll,
+		});
+		expect(result).toEqual({
+			skipped: true,
+			reason: "BRIGHTDATA_API_TOKEN not set",
+		});
+		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it("reports failed trigger responses", async () => {
+		const { runSnapshotHeartbeat } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		await expect(
+			runSnapshotHeartbeat({
+				env: { NODE_ENV: "production", BRIGHTDATA_API_TOKEN: "token" },
+				fetch: mock(
+					async () => new Response(null, { status: 503 }),
+				) as typeof fetch,
+				poll: mock(async () => {
+					throw new Error("unexpected poll");
+				}),
+			}),
+		).rejects.toThrow("HTTP 503");
+	});
+
+	it("triggers and polls a snapshot", async () => {
+		const poll = mock(async (snapshotId: string) => ({
+			snapshotId,
+			finalStatus: "ready",
+			attempts: 1,
+			elapsedMs: 10,
+		}));
+		const { runSnapshotHeartbeat } = await import(
+			"../../src/triggers/bd-snapshot-poller"
+		);
+		const result = await runSnapshotHeartbeat({
+			env: { NODE_ENV: "production", BRIGHTDATA_API_TOKEN: "token" },
+			fetch: mock(async () =>
+				Response.json({ snapshot_id: "sd_1" }),
+			) as typeof fetch,
+			poll,
+		});
+		expect(result).toMatchObject({ snapshotId: "sd_1", finalStatus: "ready" });
+		expect(poll).toHaveBeenCalledWith("sd_1");
+	});
+});

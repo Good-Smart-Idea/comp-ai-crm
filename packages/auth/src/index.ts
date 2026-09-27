@@ -4,7 +4,13 @@ export {
 	API_KEY_PREFIX,
 	DAY_SECONDS,
 } from "./api-keys";
-export { type Auth, auth, type Session, type SessionUser } from "./auth";
+export {
+	type Auth,
+	auth,
+	createSessionForExistingUser,
+	type Session,
+	type SessionUser,
+} from "./auth";
 export { AUTH_COOKIE_PREFIX, SESSION_COOKIE_NAME } from "./cookies";
 export {
 	apiUrl,

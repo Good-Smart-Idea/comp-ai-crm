@@ -24,10 +24,8 @@ interface TextToSpeechApiBody {
 }
 
 export interface ElevenLabsClientOptions {
-	/** API key. Falls back to process.env.ELEVENLABS_API_KEY if omitted. */
 	apiKey?: string;
 	baseUrl?: string;
-	/** Injectable for tests; defaults to global fetch. */
 	fetchImpl?: typeof fetch;
 	timeoutMs?: number;
 }
@@ -36,8 +34,6 @@ function statusToCode(status: number, body?: string): ElevenLabsErrorCode {
 	if (status === 401 || status === 403) return "unauthorized";
 	if (status === 404) return "not_found";
 	if (status === 429) return "rate_limited";
-	// ElevenLabs returns 400 (not 401) for several auth failure shapes, e.g.
-	// "API key ID used as API key" — treat those as unauthorized too.
 	if (
 		status === 400 &&
 		body &&
@@ -52,12 +48,6 @@ function statusToCode(status: number, body?: string): ElevenLabsErrorCode {
 	return "unknown";
 }
 
-/**
- * Typed wrapper around the ElevenLabs REST API (voices + TTS).
- * Every method returns an ElevenLabsResult — no throwing on expected API
- * failures (bad key, rate limit, bad voice id). Network / unexpected
- * failures are also normalized into the same result shape.
- */
 export class ElevenLabsClient {
 	private readonly apiKey: string | undefined;
 	private readonly baseUrl: string;

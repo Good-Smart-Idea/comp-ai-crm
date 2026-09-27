@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { createHmac } from "node:crypto";
 import http from "node:http";
 
-mock.module("@crm/auth", () => ({ auth: {} }));
+mock.module("@crm/auth", () => ({
+	createSessionForExistingUser: mock(async () => ({
+		token: "token",
+		secret: "secret",
+	})),
+}));
 mock.module("@crm/db", () => ({ db: {} }));
 
 let upstream: http.Server;

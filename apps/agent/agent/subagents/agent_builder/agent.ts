@@ -1,19 +1,19 @@
 import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { type AgentDefinition, defineAgent, defineDynamic } from "eve";
 import { z } from "zod";
+import { agentModel } from "../../lib/agent-gateway";
 import { selectedModel } from "../../lib/model";
-import { gsiModel } from "../../lib/model-gateway";
 
 export default defineAgent({
 	description:
 		"Turn one private CRM builder-chat request into a validated, reviewable team-agent version without deploying it.",
 	model: defineDynamic({
-		fallback: gsiModel(DEFAULT_AGENT_MODEL.id),
+		fallback: agentModel(DEFAULT_AGENT_MODEL.id),
 		events: {
 			"step.started": async () => {
 				const selected = await selectedModel();
 				return {
-					model: gsiModel(selected?.model ?? DEFAULT_AGENT_MODEL.id),
+					model: agentModel(selected?.model ?? DEFAULT_AGENT_MODEL.id),
 					modelContextWindowTokens:
 						selected?.modelContextWindowTokens ??
 						DEFAULT_AGENT_MODEL.contextWindowTokens,

@@ -40,7 +40,11 @@ bun run lint:slop
 bun run test:local
 ```
 
-All four run on CI, and `bun run format` fixes most of what `lint` complains about.
+Run `bun run test:local` before pushing.
+It starts the dedicated database, applies migrations, and runs package tests serially.
+CI and pre-push run `bun run test` against a prepared test database.
+They do not start the local Compose service.
+`bun run format` fixes most lint errors.
 
 `lint:slop` is [anti-slop](https://github.com/dmmulroy/anti-slop) over Oxlint, and it holds one
 line: **data crossing an I/O boundary is parsed into a domain type at the point it arrives.** No
@@ -51,7 +55,7 @@ zero in one pass; the gate is what keeps it there. A genuinely open map — a te
 bag, a log field, a user-defined custom field value — is scoped off in `.oxlintrc.json` with its
 reason, and that is the only sanctioned way past it.
 
-**A `pre-push` hook runs them for you**, so a push that would fail CI fails on your machine
+**A `pre-push` hook runs the automated checks**, so a failure stops the push on your machine
 instead, where the feedback is in seconds rather than minutes. `bun install` wires it up — the
 hooks live in `.githooks/` and `prepare` points `core.hooksPath` at them, so there is nothing to
 install and no hook manager in the dependency tree. Turbo caches build work. Test tasks always run

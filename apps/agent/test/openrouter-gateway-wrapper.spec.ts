@@ -4,12 +4,7 @@ import {
 	resolveVendor,
 	runAgentGatewayCall,
 } from "../agent/lib/agent-gateway";
-import {
-	callModelGateway,
-	DEFAULT_VENDOR,
-	gsiModel,
-	ModelGatewayError,
-} from "../agent/lib/model-gateway";
+import { DEFAULT_VENDOR, ModelGatewayError } from "../agent/lib/model-gateway";
 
 const ORIGINAL_BASE_URL = process.env.GSI_MODEL_GATEWAY_BASE_URL;
 const ORIGINAL_API_KEY = process.env.GSI_MODEL_GATEWAY_API_KEY;
@@ -68,11 +63,11 @@ describe("OpenRouter gateway wrapper — routing and defaults", () => {
 		expect(resolveVendor(true)).toBe("openrouter");
 	});
 
-	it("the ai-sdk-provider layer (gsiModel) always uses GSI_MODEL_GATEWAY_BASE_URL", () => {
+	it("the model layer always uses GSI_MODEL_GATEWAY_BASE_URL", () => {
 		process.env.GSI_MODEL_GATEWAY_BASE_URL =
 			"https://gateway.example.internal/v1";
 		process.env.GSI_MODEL_GATEWAY_API_KEY = "test-key";
-		const model = gsiModel("some-model");
+		const model = agentModel("some-model");
 		expect(model).toBeDefined();
 	});
 
@@ -110,11 +105,11 @@ describe("OpenRouter gateway wrapper — failure path", () => {
 	it("returns a clear ModelGatewayError instead of hanging or silently returning empty content", async () => {
 		let threw: unknown;
 		try {
-			await callModelGateway(
-				"unreachable-model",
-				[{ role: "user", content: "hello" }],
-				{ timeoutMs: 500 },
-			);
+			await runAgentGatewayCall({
+				model: "unreachable-model",
+				messages: [{ role: "user", content: "hello" }],
+				timeoutMs: 500,
+			});
 		} catch (error) {
 			threw = error;
 		}
@@ -157,7 +152,9 @@ describe("OpenRouter gateway wrapper — failure path", () => {
 
 		try {
 			await expect(
-				callModelGateway("test-model", [{ role: "user", content: "ping" }], {
+				runAgentGatewayCall({
+					model: "test-model",
+					messages: [{ role: "user", content: "ping" }],
 					timeoutMs: 20,
 				}),
 			).rejects.toThrow("timed out after 20ms");
@@ -173,13 +170,19 @@ describe("OpenRouter gateway wrapper — failure path", () => {
 			globalThis.fetch = (async () =>
 				new Response("unavailable", { status: 503 })) as typeof fetch;
 			await expect(
-				callModelGateway("test-model", [{ role: "user", content: "ping" }]),
+				runAgentGatewayCall({
+					model: "test-model",
+					messages: [{ role: "user", content: "ping" }],
+				}),
 			).rejects.toThrow("returned 503: unavailable");
 
 			globalThis.fetch = (async () =>
 				Response.json({ choices: [] })) as typeof fetch;
 			await expect(
-				callModelGateway("test-model", [{ role: "user", content: "ping" }]),
+				runAgentGatewayCall({
+					model: "test-model",
+					messages: [{ role: "user", content: "ping" }],
+				}),
 			).rejects.toThrow("unexpected shape");
 		} finally {
 			globalThis.fetch = originalFetch;

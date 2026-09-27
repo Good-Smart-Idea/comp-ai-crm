@@ -1,30 +1,16 @@
-/**
- * GSI overlay: Cloudflare Access header SSO gate for Comp AI CRM.
- * Runs as the `sso-gate` sidecar in front of the Next app (:8530 → gate :3000 → app :3000).
- * Existing users only (create_unknown_user semantics = FALSE): an Access-claimed email that
- * is not seeded in the DB gets 403; absence of the header proxies through to the normal
- * sign-in page untouched. Never auto-provisions.
- */
-
 import { createHmac } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import http from "node:http";
-import { auth } from "@crm/auth";
+import { createSessionForExistingUser } from "@crm/auth";
 import { db } from "@crm/db";
 
 export const ACCESS_EMAIL_HEADER = "cf-access-authenticated-user-email";
 const UP_HOST = process.env.GATE_UPSTREAM_HOST ?? "app";
 const UP_PORT = Number(process.env.GATE_UPSTREAM_PORT ?? 3000);
-// REST bridge (app /api/* and raw /rest/*) goes straight to the internal API
-// container over the compose network — never via the public Cloudflare-Access
-// hostname the app's baked-in proxy would target.
 const API_HOST = process.env.GATE_API_HOST ?? "api";
 const API_PORT = Number(process.env.GATE_API_PORT ?? 3001);
 const REST_PATH_RE = /^\/(api\/)?rest\//;
 const COOKIE_NAME = "crm.session_token";
-// API runs NODE_ENV=production → better-auth useSecureCookies prefixes its
-// session cookie with __Secure-. Browser gets the plain name (works over the
-// local http gate); gate injects both names into the proxied Cookie header.
 const SECURE_COOKIE_NAME = `__Secure-${COOKIE_NAME}`;
 const SESSION_DAYS = 7;
 
@@ -35,7 +21,7 @@ function proxy(
 	target?: { host: string; port: number; path: string },
 ) {
 	const headers = { ...req.headers };
-	delete headers[ACCESS_EMAIL_HEADER]; // never forward Access headers (spoof safety, mirrors BrightBean PR #410)
+	delete headers[ACCESS_EMAIL_HEADER];
 	if (extraCookie) {
 		headers.cookie = headers.cookie
 			? `${headers.cookie}; ${extraCookie}`
@@ -64,21 +50,7 @@ function proxy(
 export async function cfSignIn(emailLower: string) {
 	const user = await db.user.findUnique({ where: { email: emailLower } });
 	if (!user) return { forbidden: true } as const;
-	const ctx = await (
-		auth as unknown as {
-			$context: Promise<{
-				internalAdapter: {
-					createSession: (userId: string) => Promise<{ token: string }>;
-				};
-				options: { secret: string };
-			}>;
-		}
-	).$context;
-	const session = await ctx.internalAdapter.createSession(user.id);
-	const token = session.token;
-	const secret: string = ctx.options.secret;
-	// better-auth ≥1.6 (better-call getSignedCookie) verifies a standard padded
-	// base64 HMAC-SHA-256 signature (44 chars, "="-terminated) over the raw token.
+	const { token, secret } = await createSessionForExistingUser(user.id);
 	return {
 		forbidden: false,
 		user,
@@ -127,12 +99,10 @@ export function createSsoGate(
 			delete req.headers[ACCESS_EMAIL_HEADER];
 			if (!email) {
 				if (REST_PATH_RE.test(req.url ?? "")) {
-					// No Access header but an existing session cookie: still route the REST
-					// bridge to the API (it validates the signed token itself; bad token → 401).
 					routeRest(req, res, restCookies(req.headers.cookie));
 					return;
 				}
-				proxy(req, res); // no header → normal (local) sign-in path, untouched
+				proxy(req, res);
 				return;
 			}
 			const r = await signIn(email);
@@ -147,8 +117,6 @@ export function createSsoGate(
 			}
 			const cookies = `${COOKIE_NAME}=${r.cookieValue}; ${SECURE_COOKIE_NAME}=${r.cookieValue}`;
 			if (REST_PATH_RE.test(req.url ?? "")) {
-				// REST bridge: /rest/* direct to the API, /api/rest/* with the app-facing
-				// prefix stripped (public ingress strips /api before the API; internal service does not)
 				routeRest(req, res, cookies);
 				return;
 			}

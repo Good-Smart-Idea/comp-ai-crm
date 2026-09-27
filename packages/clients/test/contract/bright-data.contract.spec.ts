@@ -32,17 +32,10 @@ describe("BrightDataClient contract (live)", () => {
 				timeoutMs: 30_000,
 			});
 
-			// The contract test succeeds if:
-			// - The client never hangs (we got here with a result within 30s)
-			// - The result is strongly typed
-			// - We can distinguish success from auth/net failures
-
 			if (result.outcome === "ok") {
-				// Successful response
 				expect(result.data.length).toBeGreaterThan(0);
 				expect(result.status).toEqual(200);
 			} else {
-				// Error response is typed
 				expect(["unauthorized", "bad_response"]).toContain(result.error.code);
 				expect([true, false]).toContain(result.error.retryable);
 			}
@@ -62,9 +55,7 @@ describe("BrightDataClient contract (live)", () => {
 				timeoutMs: 15_000,
 			});
 
-			// Must be an error
 			expect(result.outcome).toBe("error");
-			// Must be typed and non-retryable
 			if (result.outcome === "error") {
 				expect(["unauthorized", "bad_response"]).toContain(result.error.code);
 				expect(result.error.retryable).toBe(false);

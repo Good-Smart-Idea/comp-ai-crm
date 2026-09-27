@@ -1,4 +1,3 @@
-// biome-ignore lint/performance/noBarrelFile: Barrel export is the intended API.
 export {
 	BrightDataClient,
 	type BrightDataConfig,

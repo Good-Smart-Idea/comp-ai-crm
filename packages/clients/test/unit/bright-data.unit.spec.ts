@@ -75,6 +75,40 @@ describe("BrightDataClient", () => {
 		}
 	});
 
+	it("sends target headers in the provider body", async () => {
+		const client = new BrightDataClient({
+			apiToken: "provider-token",
+			zone: "z",
+		});
+		const originalFetch = globalThis.fetch;
+		let request: Request | undefined;
+		globalThis.fetch = mock(async (input, init) => {
+			request = new Request(input, init);
+			return new Response("ok");
+		}) as typeof fetch;
+
+		try {
+			await client.fetchText({
+				url: "https://example.com",
+				headers: { authorization: "Bearer target-token", accept: "text/plain" },
+			});
+			expect(request?.headers.get("authorization")).toBe(
+				"Bearer provider-token",
+			);
+			expect(await request?.json()).toEqual({
+				zone: "z",
+				url: "https://example.com",
+				format: "raw",
+				headers: {
+					authorization: "Bearer target-token",
+					accept: "text/plain",
+				},
+			});
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	it("maps a 401 to a typed, non-retryable unauthorized error", async () => {
 		const client = new BrightDataClient({ apiToken: "bad", zone: "z" });
 		const originalFetch = globalThis.fetch;

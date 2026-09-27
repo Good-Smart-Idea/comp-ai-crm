@@ -317,6 +317,15 @@ export type Auth = typeof auth;
 export type Session = typeof auth.$Infer.Session;
 export type SessionUser = Session["user"];
 
+export async function createSessionForExistingUser(userId: string): Promise<{
+	token: string;
+	secret: string;
+}> {
+	const context = await auth.$context;
+	const session = await context.internalAdapter.createSession(userId);
+	return { token: session.token, secret: context.secret };
+}
+
 async function replaceSlackAccount(account: {
 	id: string;
 	accountId: string;

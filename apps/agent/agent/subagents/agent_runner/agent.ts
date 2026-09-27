@@ -2,14 +2,14 @@ import { db } from "@crm/db";
 import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { type AgentDefinition, defineAgent, defineDynamic } from "eve";
 import { z } from "zod";
-import { gsiModel } from "../../lib/model-gateway";
+import { agentModel } from "../../lib/agent-gateway";
 import { attribute, purposeOf } from "../../lib/session-purpose";
 
 export default defineAgent({
 	description:
 		"Execute one immutable deployed CRM agent version and persist its result and every side effect.",
 	model: defineDynamic({
-		fallback: gsiModel(DEFAULT_AGENT_MODEL.id),
+		fallback: agentModel(DEFAULT_AGENT_MODEL.id),
 		events: {
 			"step.started": async (_event, ctx) => {
 				if (purposeOf(ctx) !== "team-agent") return null;
@@ -26,7 +26,7 @@ export default defineAgent({
 				});
 				return run
 					? {
-							model: gsiModel(run.version.modelId),
+							model: agentModel(run.version.modelId),
 							modelContextWindowTokens: run.version.modelContextWindowTokens,
 						}
 					: null;

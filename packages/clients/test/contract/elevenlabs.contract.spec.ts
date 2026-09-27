@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ElevenLabsClient } from "../../src/elevenlabs/client.js";
 
-/**
- * Contract test against the LIVE ElevenLabs API. No mocks.
- * Requires ELEVENLABS_API_KEY in the environment; run with:
- *   bun test test/contract
- */
 describe("ElevenLabsClient contract (live API)", () => {
 	const hasKey = Boolean(process.env.ELEVENLABS_API_KEY);
 
@@ -74,10 +69,6 @@ describe("ElevenLabsClient contract (live API)", () => {
 		}
 	}, 30_000);
 
-	// Real env has ELEVENLABS_API_KEY set but ElevenLabs' own API rejects it
-	// as an "API key ID used as API key" (not a valid `sk_...` secret). This
-	// asserts the wrapper still classifies that as a clean typed error
-	// against the LIVE API, exercising exactly this failure path for real.
 	test.if(hasKey)(
 		"configured ELEVENLABS_API_KEY is classified against the live API (pass=live creds valid, or typed unauthorized if not)",
 		async () => {

@@ -16,8 +16,8 @@ OpenRouter requires an explicit user action and `userRequestedOpenRouter: true`.
 The wrapper sends `X-GSI-Gateway-Vendor` and uses a 30-second default timeout.
 It reports transport, timeout, HTTP, and response-contract failures.
 
-Default `zai/glm-5.2-fast`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
-agent and the API both need it.
+Default `deepseek/deepseek-v4-flash` with a 1,048,576-token context window.
+`DEFAULT_AGENT_MODEL` lives in `@crm/db/settings` because both applications need it.
 
 - **A row (`AppSetting`), not an env var**, via `defineDynamic` on `session.started`.
   Open conversations keep their model — prompt caches are per model.

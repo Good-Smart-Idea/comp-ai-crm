@@ -34,7 +34,6 @@ export interface TextToSpeechResult {
 	contentType: string;
 }
 
-/** Discriminated error union — every failure path returns one of these, never throws for expected API errors. */
 export type ElevenLabsErrorCode =
 	| "unauthorized"
 	| "not_found"
