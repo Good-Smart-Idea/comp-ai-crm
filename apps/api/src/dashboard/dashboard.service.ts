@@ -39,7 +39,9 @@ export class DashboardService {
 
 	async summary(actingUserId: string, input: DashboardSummaryInput) {
 		const mine = input.scope === "me";
-		const owned = mine ? { ownerId: actingUserId } : {};
+		const owned = mine
+			? { archivedAt: null, ownerId: actingUserId }
+			: { archivedAt: null };
 
 		const now = new Date();
 		const startOfMonth = monthStart(now, 0);

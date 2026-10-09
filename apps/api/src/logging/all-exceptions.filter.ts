@@ -7,6 +7,7 @@ import {
 	HttpStatus,
 	Logger,
 } from "@nestjs/common";
+import { captureException } from "@sentry/bun";
 import type { Request, Response } from "express";
 import { getRequestContext } from "./request-context";
 
@@ -54,6 +55,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 			);
 
 			apiError({ error: exception, route: routePattern(request), status });
+			captureException(exception);
 			return;
 		}
 
