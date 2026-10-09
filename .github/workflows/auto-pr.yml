@@ -20,7 +20,7 @@ permissions:
 jobs:
   open:
     name: Open a pull request into main
-    runs-on: [self-hosted, Linux, X64, gsi-ada]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
@@ -53,7 +53,6 @@ jobs:
       - name: Open the pull request
         env:
           GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
