@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.17.1...v1.18.0) (2026-10-09)
+
+
+### Features
+
+* **ci:** reconcile release lineage for verified deployments ([9f516b1](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/9f516b104d3b2a78c86a0dd1b30b963a2de72c22))
+
 ## [1.17.1](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.17.0...v1.17.1) (2026-10-09)
 
 
