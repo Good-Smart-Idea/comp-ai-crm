@@ -48,3 +48,14 @@ No registry, nginx route, or app admission changes. The manager selftest and rea
 flock behavior test live beside its canonical source. Validate this helper with
 bash -n, then use release Actions and verify all four image revisions and a CRM
 conversation. Never invoke a manual restart or a wake bypass to qualify a release.
+
+## Browser session delivery
+
+Nginx sends /api paths directly to the API. The SSO gate therefore returns both
+the existing local cookie and the production __Secure-crm.session_token cookie.
+The secure cookie has Secure, HttpOnly, SameSite=Lax and the same signed token.
+API keys, model selection and chat mutations keep their existing authorization
+guards. No new user, member role, API-key permission or connector is granted.
+
+The regression uses native production Better Auth and disposable PostgreSQL.
+It proves session recognition, own-key create/revoke and tampered-cookie refusal.
