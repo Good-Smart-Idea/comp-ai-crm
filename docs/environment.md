@@ -138,8 +138,10 @@ concurrent work, and each research job.
 Ada injects `GSI_MODEL_GATEWAY_BASE_URL`, `GSI_MODEL_GATEWAY_API_KEY`, and
 `GSI_MODEL_CATALOG_URL` into the agent processes. The catalog governs Ada Ollama,
 OpenRouter, OpenCode, Hugging Face, and approved Max-plan proxy routes. The catalog
-supplies the model source and cost metadata. A missing catalog preserves the local,
-no-spend default. Credentials are never shared between users or providers.
+supplies the model source and cost metadata. The compiled default is GLM 5.3 Flash. Its exact OpenRouter route is approved for
+CRM model calls. Other automatic paid-model routes remain blocked. Requests use low
+reasoning effort, at most 4096 output tokens, and no provider fallback. Missing
+credentials remove model access. Credentials are never exposed to browser users.
 
 ## Mailbox sync
 

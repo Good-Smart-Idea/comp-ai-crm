@@ -26,7 +26,7 @@ export default defineAgent({
 			},
 		},
 	}),
-	modelContextWindowTokens: 128_000,
+	modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
 	limits: {
 		maxInputTokensPerSession: 500_000,
 		maxOutputTokensPerSession: 50_000,

@@ -7,14 +7,6 @@ import {
 	gsiModel,
 } from "./model-gateway";
 
-/**
- * The agent layer of the OpenRouter gateway wrapper. This is the only place
- * OpenRouter may be selected from application code — every call defaults to
- * Ollama and reaching OpenRouter requires the caller to pass
- * `userRequestedOpenRouter: true`, which exists so that one explicit,
- * traceable user action is the only path to the vendor. There is no
- * environment variable, header, or inferred state that flips this on.
- */
 export interface AgentGatewayRequest {
 	model: string;
 	messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
