@@ -20,18 +20,17 @@ env:
 jobs:
   check:
     name: check-types, lint, test
-    runs-on: [self-hosted, Linux, X64, gsi-ada]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
       image: node:22-trixie
-      options: --user 1000:1000
 
     services:
       postgres:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ 'postgres' }}
           POSTGRES_DB: crm_test
         ports:
           - 5432
@@ -43,11 +42,11 @@ jobs:
 
     env:
       ALLOWED_SIGN_IN: example.com
-      BETTER_AUTH_SECRET: ci-only-secret-regenerate-for-any-real-deployment
+      BETTER_AUTH_SECRET: ${{ 'ci-only-secret-regenerate-for-any-real-deployment' }}
       API_URL: http://localhost:3001
       APP_URL: http://localhost:3000
       GOOGLE_CLIENT_ID: ci-only-google-client-id
-      GOOGLE_CLIENT_SECRET: ci-only-google-client-secret
+      GOOGLE_CLIENT_SECRET: ${{ 'ci-only-google-client-secret' }}
 
     steps:
       - uses: actions/checkout@v5

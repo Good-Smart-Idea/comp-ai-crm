@@ -33,12 +33,20 @@ export class ModelGatewayError extends Error {
 	}
 }
 
-function gatewayBaseURL(): string {
-	return process.env.GSI_MODEL_GATEWAY_BASE_URL?.trim() || LOCAL_GATEWAY_URL;
-}
-
-function gatewayApiKey(): string {
-	return process.env.GSI_MODEL_GATEWAY_API_KEY?.trim() || "disabled";
+function gatewaySettings(vendor: GatewayVendor) {
+	const configured =
+		process.env.GSI_MODEL_GATEWAY_BASE_URL?.trim() || LOCAL_GATEWAY_URL;
+	const hostname = new URL(configured).hostname.toLowerCase();
+	const blocked =
+		vendor !== "openrouter" &&
+		["openrouter.ai", "api.openai.com", "api.anthropic.com"].includes(hostname);
+	return {
+		blocked,
+		baseURL: blocked ? LOCAL_GATEWAY_URL : configured,
+		apiKey: blocked
+			? "disabled"
+			: process.env.GSI_MODEL_GATEWAY_API_KEY?.trim() || "disabled",
+	};
 }
 
 /**
@@ -52,8 +60,7 @@ export function gsiModel(
 	id: string,
 	vendor: GatewayVendor = DEFAULT_VENDOR,
 ): ReturnType<OpenAIProvider["chat"]> {
-	const baseURL = gatewayBaseURL();
-	const apiKey = gatewayApiKey();
+	const { baseURL, apiKey } = gatewaySettings(vendor);
 	return createOpenAI({
 		baseURL,
 		apiKey,
@@ -90,8 +97,12 @@ export async function callModelGateway(
 	options: GatewayCallOptions = {},
 ): Promise<GatewayChatResult> {
 	const vendor = options.vendor ?? DEFAULT_VENDOR;
-	const baseURL = gatewayBaseURL();
-	const apiKey = gatewayApiKey();
+	const { baseURL, apiKey, blocked } = gatewaySettings(vendor);
+	if (blocked)
+		throw new ModelGatewayError(
+			"A metered provider cannot be an ambient automation route",
+			vendor,
+		);
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
 	const controller = new AbortController();
