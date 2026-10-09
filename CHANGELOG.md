@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.17.0...v1.17.1) (2026-10-09)
+
+
+### Fixes
+
+* exclude archived deals and block ambient paid routes ([#45](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/45)) ([1f2c2ef](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/1f2c2ef8b532023fd2095493d305a9b0f6fc8085))
+
 ## [1.17.0](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.16.0...v1.17.0) (2026-09-19)
 
 
