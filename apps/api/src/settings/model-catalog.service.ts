@@ -1,3 +1,4 @@
+import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Cache } from "cache-manager";
@@ -21,18 +22,25 @@ const rate = z
 	.transform(Number)
 	.refine(Number.isFinite)
 	.nullable()
+	.default(null)
 	.catch(null);
 const catalogModel = z.object({
 	id: z.string().trim().min(1),
-	name: z.string().catch(""),
-	provider: z.string().catch(""),
-	owned_by: z.string().catch(""),
-	type: z.string().catch("language"),
+	name: z.string().default("").catch(""),
+	provider: z.string().default("").catch(""),
+	owned_by: z.string().default("").catch(""),
+	type: z.string().default("language").catch("language"),
 	tags: z.array(z.string()).optional(),
-	context_window: z.number().positive().catch(128_000),
+	context_window: z.number().positive().default(128_000).catch(128_000),
 	contextWindowTokens: z.number().positive().optional(),
-	pricing: z.object({ input: rate, output: rate }).nullable().catch(null),
-	source: z.string().trim().min(1).nullable().catch(null),
+	context_length: z.number().positive().optional(),
+	supported_parameters: z.array(z.string()).optional(),
+	pricing: z
+		.object({ input: rate, output: rate, prompt: rate, completion: rate })
+		.nullable()
+		.default(null)
+		.catch(null),
+	source: z.string().trim().min(1).nullable().default(null).catch(null),
 });
 
 const catalogResponse = z.union([
@@ -58,17 +66,37 @@ export function parseCatalog(value: CatalogPayload): CatalogModel[] | null {
 		const model = catalogModel.safeParse(entry);
 		if (!model.success || model.data.type !== "language") return [];
 		if (model.data.tags && !model.data.tags.includes("tool-use")) return [];
-		const input = model.data.pricing?.input ?? null;
-		const output = model.data.pricing?.output ?? null;
+		if (
+			model.data.supported_parameters &&
+			!model.data.supported_parameters.includes("tools")
+		)
+			return [];
+		const input =
+			model.data.pricing?.input ??
+			(model.data.pricing?.prompt == null
+				? null
+				: model.data.pricing.prompt * 1_000_000);
+		const output =
+			model.data.pricing?.output ??
+			(model.data.pricing?.completion == null
+				? null
+				: model.data.pricing.completion * 1_000_000);
 		return [
 			{
 				id: model.data.id,
 				name: model.data.name || model.data.id,
-				provider: model.data.provider || model.data.owned_by || "managed",
+				provider:
+					model.data.provider ||
+					model.data.owned_by ||
+					(model.data.supported_parameters ? "OpenRouter" : "managed"),
 				contextWindowTokens:
-					model.data.contextWindowTokens ?? model.data.context_window,
+					model.data.contextWindowTokens ??
+					model.data.context_length ??
+					model.data.context_window,
 				pricing: input !== null && output !== null ? { input, output } : null,
-				source: model.data.source,
+				source:
+					model.data.source ??
+					(model.data.supported_parameters ? "OpenRouter" : null),
 			},
 		];
 	});
@@ -137,7 +165,9 @@ export class ModelCatalogService {
 				message: "Model catalog loaded",
 				models: models.length,
 			});
-			return models;
+			return new URL(url).hostname === "openrouter.ai"
+				? models.filter((model) => model.id === DEFAULT_AGENT_MODEL.id)
+				: models;
 		} catch (error) {
 			this.logger.warn({
 				message: "Model catalog unavailable",

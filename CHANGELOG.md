@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.1](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.0...v1.18.1) (2026-10-09)
+
+
+### Fixes
+
+* **agent:** route GSIW-454 CRM through approved GLM Flash ([#50](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/50)) ([3197589](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/319758972907225660b7177909655f10643f700f))
+
 ## [1.18.0](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.17.1...v1.18.0) (2026-10-09)
 
 

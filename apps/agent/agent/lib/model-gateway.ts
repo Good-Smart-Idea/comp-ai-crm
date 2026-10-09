@@ -1,8 +1,7 @@
 import { createOpenAI, type OpenAIProvider } from "@ai-sdk/openai";
 import { z } from "zod";
 
-const LOCAL_GATEWAY_URL = "http://127.0.0.1:1/v1";
-const DEFAULT_TIMEOUT_MS = 30_000;
+import { MODEL_GATEWAY } from "./model-gateway-config";
 
 export type GatewayVendor = "ollama" | "openrouter";
 
@@ -33,39 +32,78 @@ export class ModelGatewayError extends Error {
 	}
 }
 
-function gatewaySettings(vendor: GatewayVendor) {
+function gatewaySettings(model: string, vendor: GatewayVendor) {
 	const configured =
-		process.env.GSI_MODEL_GATEWAY_BASE_URL?.trim() || LOCAL_GATEWAY_URL;
-	const hostname = new URL(configured).hostname.toLowerCase();
+		process.env.GSI_MODEL_GATEWAY_BASE_URL?.trim() || MODEL_GATEWAY.localUrl;
+	const url = new URL(configured);
+	const hostname = url.hostname.toLowerCase();
+	const approved =
+		url.origin === "https://openrouter.ai" &&
+		!url.username &&
+		!url.password &&
+		!url.search &&
+		!url.hash &&
+		url.pathname.replace(/\/+$/, "") === "/api/v1" &&
+		model === MODEL_GATEWAY.openrouter.model;
+	const effectiveVendor = approved ? "openrouter" : vendor;
 	const blocked =
+		!approved &&
 		vendor !== "openrouter" &&
 		["openrouter.ai", "api.openai.com", "api.anthropic.com"].includes(hostname);
 	return {
 		blocked,
-		baseURL: blocked ? LOCAL_GATEWAY_URL : configured,
+		vendor: effectiveVendor,
+		baseURL: blocked ? MODEL_GATEWAY.localUrl : configured,
 		apiKey: blocked
 			? "disabled"
 			: process.env.GSI_MODEL_GATEWAY_API_KEY?.trim() || "disabled",
 	};
 }
 
-/**
- * The ai-sdk-provider layer. Every call goes through the governed
- * GSI_MODEL_GATEWAY_BASE_URL gateway. `vendor` defaults to "ollama" and is
- * never inferred — a caller must explicitly pass "openrouter" (an explicit
- * user action) to reach it. There is no path that resolves an OpenRouter
- * call from ambient state.
- */
+const gatewayRequestSchema = z
+	.object({
+		model: z.string(),
+		max_tokens: z.number().positive().optional(),
+		max_completion_tokens: z.number().positive().optional(),
+	})
+	.passthrough();
+
+function requestBody(body: string): string {
+	const parsed = gatewayRequestSchema.parse(JSON.parse(body));
+	if (parsed.model !== MODEL_GATEWAY.openrouter.model) return body;
+	const { max_completion_tokens, ...payload } = parsed;
+	return JSON.stringify({
+		...payload,
+		max_tokens: Math.min(
+			parsed.max_tokens ??
+				max_completion_tokens ??
+				MODEL_GATEWAY.openrouter.maxOutputTokens,
+			MODEL_GATEWAY.openrouter.maxOutputTokens,
+		),
+		reasoning: { effort: "low" },
+		provider: { allow_fallbacks: false },
+	});
+}
+
 export function gsiModel(
 	id: string,
 	vendor: GatewayVendor = DEFAULT_VENDOR,
 ): ReturnType<OpenAIProvider["chat"]> {
-	const { baseURL, apiKey } = gatewaySettings(vendor);
+	const settings = gatewaySettings(id, vendor);
+	const { baseURL, apiKey } = settings;
 	return createOpenAI({
 		baseURL,
 		apiKey,
-		name: `gsi-${vendor}`,
-		headers: { "X-GSI-Gateway-Vendor": vendor },
+		name: `gsi-${settings.vendor}`,
+		headers: { "X-GSI-Gateway-Vendor": settings.vendor },
+		fetch: (url, init) =>
+			fetch(url, {
+				...init,
+				body:
+					settings.vendor === "openrouter" && init?.body
+						? requestBody(z.string().parse(init.body))
+						: init?.body,
+			}),
 	}).chat(id);
 }
 
@@ -82,28 +120,19 @@ export interface GatewayChatResult {
 	raw: unknown;
 }
 
-/**
- * The sdk layer. A minimal, dependency-light OpenAI-compatible client
- * against the governed gateway. Used by the agent and contract tests that
- * need the raw HTTP shape rather than the ai-sdk wrapper.
- *
- * Defaults to "ollama". Only an explicit `vendor: "openrouter"` reaches
- * OpenRouter, and only via the gateway base URL — never a raw
- * OPENROUTER_API_KEY.
- */
 export async function callModelGateway(
 	model: string,
 	messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
 	options: GatewayCallOptions = {},
 ): Promise<GatewayChatResult> {
-	const vendor = options.vendor ?? DEFAULT_VENDOR;
-	const { baseURL, apiKey, blocked } = gatewaySettings(vendor);
+	const settings = gatewaySettings(model, options.vendor ?? DEFAULT_VENDOR);
+	const { baseURL, apiKey, blocked, vendor } = settings;
 	if (blocked)
 		throw new ModelGatewayError(
 			"A metered provider cannot be an ambient automation route",
 			vendor,
 		);
-	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+	const timeoutMs = options.timeoutMs ?? MODEL_GATEWAY.timeoutMs;
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -120,7 +149,10 @@ export async function callModelGateway(
 				Authorization: `Bearer ${apiKey}`,
 				"X-GSI-Gateway-Vendor": vendor,
 			},
-			body: JSON.stringify({ model, messages }),
+			body:
+				vendor === "openrouter"
+					? requestBody(JSON.stringify({ model, messages }))
+					: JSON.stringify({ model, messages }),
 			signal: controller.signal,
 		});
 	} catch (error) {
@@ -144,9 +176,8 @@ export async function callModelGateway(
 	}
 
 	if (!response.ok) {
-		const body = await response.text().catch(() => "");
 		throw new ModelGatewayError(
-			`Model gateway call to ${vendor} returned ${response.status}: ${body.slice(0, 500)}`,
+			`Model gateway call to ${vendor} returned ${response.status}`,
 			vendor,
 		);
 	}
