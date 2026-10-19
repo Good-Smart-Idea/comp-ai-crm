@@ -189,14 +189,36 @@ describe("retireExhausted", () => {
 			for (const task of claimed) await expire(task.id);
 		}
 
-		for (let pass = 0; pass < 3; pass++) {
-			expect((await retireExhausted(2)).length).toBeLessThanOrEqual(2);
-		}
+		expect(await retireExhausted(2)).toHaveLength(2);
+		expect(await retireExhausted(2)).toHaveLength(1);
+		expect(await retireExhausted(2)).toHaveLength(0);
 
 		const open = await db.agentTask.count({
 			where: { id: { in: mine }, finishedAt: null },
 		});
 		expect(open).toBe(0);
+	});
+
+	it("concurrent retirement keeps the batch limits and never retires one row twice", async () => {
+		const mine = await Promise.all(Array.from({ length: 6 }, () => queue()));
+		await db.agentTask.updateMany({
+			where: { id: { in: mine.map((task) => task.id) } },
+			data: { attempts: MAX_ATTEMPTS, leasedUntil: null },
+		});
+		const batches = await Promise.all([
+			retireExhausted(2),
+			retireExhausted(2),
+			retireExhausted(2),
+		]);
+		for (const batch of batches) expect(batch.length).toBeLessThanOrEqual(2);
+		const ids = batches.flat().map((task) => task.id);
+		expect(ids).toHaveLength(6);
+		expect(new Set(ids).size).toBe(6);
+		expect(
+			await db.agentTask.count({
+				where: { id: { in: mine.map((task) => task.id) }, finishedAt: null },
+			}),
+		).toBe(0);
 	});
 });
 

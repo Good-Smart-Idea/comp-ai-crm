@@ -30,3 +30,32 @@ compose file). It owns the public port `127.0.0.1:8530`; `app` moved to the
 internal-only `127.0.0.1:8532` and is reached through the gate, exactly as the
 hand-built overlay had it. `deploy-live.sh` now recreates, health-checks, and
 rolls back `sso-gate` along with `agent api app`.
+
+## CRM wake and deployment coordination
+
+The on-demand manager's default root Compose definition can restore older images
+while this helper replaces containers. Both wake and stop now use the CRM-owned
+ops/ada/compose.yml, gsi/compcrm:live, and the helper's nonblocking deployment lock.
+
+Manager source remains in mcp-servers/scripts/gsi-ada/app-ondemand. Its main-only
+Actions workflow verifies and stages the content-addressed artifact. This helper
+pins checksum 4c02c2a53f7656440e1dffb7feee15d3bafd6352ca5c92b331cce8efc6699143,
+checks ownership and permissions, saves the previous binary and restarts the
+existing manager while holding the deployment lock. Failed manager activation
+restores the prior binary before app deployment begins.
+
+No registry, nginx route, or app admission changes. The manager selftest and real
+flock behavior test live beside its canonical source. Validate this helper with
+bash -n, then use release Actions and verify all four image revisions and a CRM
+conversation. Never invoke a manual restart or a wake bypass to qualify a release.
+
+## Browser session delivery
+
+Nginx sends /api paths directly to the API. The SSO gate therefore returns both
+the existing local cookie and the production __Secure-crm.session_token cookie.
+The secure cookie has Secure, HttpOnly, SameSite=Lax and the same signed token.
+API keys, model selection and chat mutations keep their existing authorization
+guards. No new user, member role, API-key permission or connector is granted.
+
+The regression uses native production Better Auth and disposable PostgreSQL.
+It proves session recognition, own-key create/revoke and tampered-cookie refusal.

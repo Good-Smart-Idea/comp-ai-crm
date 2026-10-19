@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.2](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.1...v1.18.2) (2026-10-09)
+
+
+### Fixes
+
+* **crm:** restore GSIW-454 sessions and stable GLM deployment ([#53](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/53)) ([7d8bc72](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/7d8bc7273627cace70f484d31aae47c0464e4dae))
+
 ## [1.18.1](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.0...v1.18.1) (2026-10-09)
 
 

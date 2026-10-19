@@ -216,6 +216,9 @@ Bright Data access and does not expose credentials.
   billable lookup costs are normalized to two units. The budget rations calls per contact and a session
   with a budget of 4 must still be able to make two of them.
 - `lib/tasks.ts` — `claimDue` leases with `FOR UPDATE SKIP LOCKED`.
+- `retireExhausted` materializes one locked candidate set before updating rows.
+  Batch limits apply once per statement. Concurrent retirements keep disjoint row
+  locks and cannot exceed the limit or retire the same row twice.
 - **`schedules/dispatch.ts` is the only schedule and decides nothing.** "Every N
   minutes, the oldest ten contacts" belongs in a `dueAt`.
 - `tools/schedule_recheck.ts` — its `reason` is shown to the rep.

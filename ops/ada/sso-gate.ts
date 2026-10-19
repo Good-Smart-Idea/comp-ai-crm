@@ -5,11 +5,17 @@
  * is not seeded in the DB gets 403; absence of the header proxies through to the normal
  * sign-in page untouched. Never auto-provisions.
  */
-import { auth } from "@crm/auth";
-import { db } from "@crm/db";
+
 import { createHmac, randomBytes } from "node:crypto";
-import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import http from "node:http";
+import { auth } from "@crm/auth";
+import {
+	SECURE_SESSION_COOKIE_NAME,
+	SESSION_COOKIE_NAME,
+	sessionCookieHeaders,
+} from "@crm/auth/cookies";
+import { db } from "@crm/db";
 
 const HEADER = "cf-access-authenticated-user-email";
 const UP_HOST = process.env.GATE_UPSTREAM_HOST ?? "app";
@@ -20,11 +26,8 @@ const UP_PORT = Number(process.env.GATE_UPSTREAM_PORT ?? 3000);
 const API_HOST = process.env.GATE_API_HOST ?? "api";
 const API_PORT = Number(process.env.GATE_API_PORT ?? 3001);
 const REST_PATH_RE = /^\/(api\/)?rest\//;
-const COOKIE_NAME = "crm.session_token";
-// API runs NODE_ENV=production → better-auth useSecureCookies prefixes its
-// session cookie with __Secure-. Browser gets the plain name (works over the
-// local http gate); gate injects both names into the proxied Cookie header.
-const SECURE_COOKIE_NAME = `__Secure-${COOKIE_NAME}`;
+const COOKIE_NAME = SESSION_COOKIE_NAME;
+const SECURE_COOKIE_NAME = SECURE_SESSION_COOKIE_NAME;
 const SESSION_DAYS = 7;
 
 function proxy(
@@ -143,8 +146,10 @@ const server = http.createServer(async (req, res) => {
 			routeRest(req, res, cookies);
 			return;
 		}
-		const setCookie = `${COOKIE_NAME}=${r.cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
-		res.setHeader("Set-Cookie", setCookie);
+		res.setHeader(
+			"Set-Cookie",
+			sessionCookieHeaders(r.cookieValue, SESSION_DAYS * 86400),
+		);
 		proxy(req, res, cookies);
 	} catch (e) {
 		console.error("cfaccess-gate error", e);

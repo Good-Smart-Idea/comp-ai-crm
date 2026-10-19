@@ -7,6 +7,8 @@ compose_file=$app_dir/ops/ada/compose.yml
 env_file=$app_dir/.env
 live_image=gsi/compcrm:live
 lock_file=/run/lock/gsi-deploy-compcrm.lock
+ondemand_digest=4c02c2a53f7656440e1dffb7feee15d3bafd6352ca5c92b331cce8efc6699143
+ondemand_source=/opt/gsi/ops/ondemand/$ondemand_digest/gsi-app-ondemand
 
 fail() {
 	printf '%s\n' "$1" >&2
@@ -23,6 +25,23 @@ fail() {
 
 exec 9>"$lock_file"
 flock -n 9 || fail "A Comp CRM deployment is already running."
+
+[[ -f $ondemand_source ]] || fail "The reviewed CRM wake artifact is not staged."
+[[ $(stat -c '%U:%G' "$ondemand_source") == root:root ]] || fail "CRM wake artifact ownership is unsafe."
+[[ $(stat -c '%a' "$ondemand_source") == 755 ]] || fail "CRM wake artifact permissions are unsafe."
+[[ $(sha256sum "$ondemand_source" | cut -d' ' -f1) == "$ondemand_digest" ]] || fail "CRM wake artifact checksum does not match."
+if ! cmp -s "$ondemand_source" /usr/local/sbin/gsi-app-ondemand; then
+	previous_manager_digest=$(sha256sum /usr/local/sbin/gsi-app-ondemand | cut -d' ' -f1)
+	previous_manager=/opt/gsi/ops/ondemand/previous/$previous_manager_digest/gsi-app-ondemand
+	install -D -m 0755 /usr/local/sbin/gsi-app-ondemand "$previous_manager"
+	install -m 0755 "$ondemand_source" /usr/local/sbin/gsi-app-ondemand.next
+	mv -f /usr/local/sbin/gsi-app-ondemand.next /usr/local/sbin/gsi-app-ondemand
+	if ! systemctl restart gsi-app-ondemand.service || ! systemctl is-active --quiet gsi-app-ondemand.service; then
+		install -m 0755 "$previous_manager" /usr/local/sbin/gsi-app-ondemand
+		systemctl restart gsi-app-ondemand.service
+		fail "CRM wake contract activation failed and was restored."
+	fi
+fi
 
 sha=${1,,}
 candidate_image=gsi/compcrm:$sha
