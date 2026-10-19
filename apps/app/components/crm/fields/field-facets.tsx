@@ -10,6 +10,30 @@ import type { FieldEntity } from "./fields-entity";
  * SELECT and USER admin fields become filter facets automatically — no
  * per-field opt-in, mirroring `fields.filterableFieldsFor` on the API.
  */
+export function fieldFacetOptions(
+	field: {
+		type: string;
+		options: { id: string; label: string }[];
+	},
+	users: { id: string; name: string }[] | undefined,
+	counts: Record<string, number> | undefined,
+): { value: string; label: string }[] {
+	const options =
+		field.type === "USER"
+			? (users ?? []).map((user) => ({
+					value: user.id,
+					label: user.name,
+				}))
+			: field.options.map((option) => ({
+					value: option.id,
+					label: option.label,
+				}));
+
+	return field.type === "USER"
+		? options.filter((option) => (counts?.[option.value] ?? 0) > 0)
+		: options;
+}
+
 export function useFieldFacets(
 	entity: FieldEntity,
 	facetCounts: Record<string, Record<string, number>> | undefined,
@@ -21,24 +45,14 @@ export function useFieldFacets(
 	return useMemo(() => {
 		if (!fields.data) return [];
 
-		return fields.data.map((field) => {
-			const counts = facetCounts?.[`field:${field.key}`];
-			const options =
-				field.type === "USER"
-					? (users.data ?? []).map((user) => ({
-							value: user.id,
-							label: user.name,
-						}))
-					: field.options.map((option) => ({
-							value: option.id,
-							label: option.label,
-						}));
-
-			return {
-				id: `field:${field.key}`,
-				label: field.label,
-				options: options.filter((option) => (counts?.[option.value] ?? 0) > 0),
-			};
-		});
+		return fields.data.map((field) => ({
+			id: `field:${field.key}`,
+			label: field.label,
+			options: fieldFacetOptions(
+				field,
+				users.data,
+				facetCounts?.[`field:${field.key}`],
+			),
+		}));
 	}, [fields.data, users.data, facetCounts]);
 }
