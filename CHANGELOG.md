@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.4](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.3...v1.18.4) (2026-10-19)
+
+
+### Fixes
+
+* **app:** keep configured SELECT options in filter facets at zero counts ([#59](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/59)) ([052a0b8](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/052a0b8e5f766de97582e03212853a88f6099d2d))
+
 ## [1.18.3](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.2...v1.18.3) (2026-10-19)
 
 
