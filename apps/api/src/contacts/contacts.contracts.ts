@@ -33,6 +33,7 @@ export const contactCreateInput = z.object({
 	title: z.string().trim().optional(),
 	companyId: z.string().nullable().optional(),
 	ownerId: z.string().nullable().optional(),
+	fields: recordFieldValues.optional(),
 });
 
 export type ContactCreateInput = z.infer<typeof contactCreateInput>;

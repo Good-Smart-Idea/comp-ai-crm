@@ -621,6 +621,139 @@ describe("a record update that fails", () => {
 	});
 });
 
+describe("contact creation with fields", () => {
+	async function contactCount(email: string): Promise<number> {
+		return db.contact.count({
+			where: { email: { equals: email, mode: "insensitive" } },
+		});
+	}
+
+	it("keeps a create without fields working", async () => {
+		const created = await contacts.create({
+			firstName: "Plain",
+			lastName: "Create",
+			email: `plain-create@${domain}`,
+			companyId,
+		});
+
+		expect(created.id).toBeTruthy();
+		expect(
+			await db.fieldValue.count({ where: { contactId: created.id } }),
+		).toBe(0);
+	});
+
+	it("stores a valid select option with the new contact", async () => {
+		const field = await fields.create({
+			entity: "CONTACT",
+			label: "Spec stage",
+			type: "SELECT",
+			options: [{ label: "Intake" }, { label: "Proposal" }],
+			agentFilled: false,
+			agentBrief: null,
+			required: false,
+			showOnSheet: true,
+			showOnTable: false,
+			showOnFilter: false,
+		});
+
+		const intake = field.options.find((option) => option.label === "Intake");
+		if (!intake) throw new Error("Missing Intake option.");
+
+		const created = await contacts.create({
+			firstName: "Staged",
+			email: `staged-create@${domain}`,
+			companyId,
+			fields: { spec_stage: intake.id },
+		});
+
+		const rows = await db.fieldValue.findMany({
+			where: { contactId: created.id },
+		});
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.fieldId).toBe(field.id);
+		expect(rows[0]?.optionId).toBe(intake?.id);
+	});
+
+	it("rolls back the whole contact for an unknown field", async () => {
+		const email = `unknown-field@${domain}`;
+
+		let refused: Error | null = null;
+		try {
+			await contacts.create({
+				firstName: "Doomed",
+				email,
+				companyId,
+				fields: { spec_missing: "x" },
+			});
+		} catch (cause) {
+			refused = cause as Error;
+		}
+		expect(refused?.message).toMatch(/no field/);
+
+		expect(await contactCount(email)).toBe(0);
+	});
+
+	it("rolls back the whole contact for an invalid select option", async () => {
+		await fields.create({
+			entity: "CONTACT",
+			label: "Spec tier",
+			type: "SELECT",
+			options: [{ label: "Gold" }],
+			agentFilled: false,
+			agentBrief: null,
+			required: false,
+			showOnSheet: true,
+			showOnTable: false,
+			showOnFilter: false,
+		});
+
+		const email = `bad-option@${domain}`;
+
+		let refused: Error | null = null;
+		try {
+			await contacts.create({
+				firstName: "Doomed",
+				email,
+				companyId,
+				fields: { spec_tier: "not-an-option-id" },
+			});
+		} catch (cause) {
+			refused = cause as Error;
+		}
+		expect(refused).not.toBeNull();
+
+		expect(await contactCount(email)).toBe(0);
+	});
+
+	it("stores an empty text value as nothing", async () => {
+		await fields.create({
+			entity: "CONTACT",
+			label: "Spec blank",
+			type: "TEXT",
+			options: [],
+			agentFilled: false,
+			agentBrief: null,
+			required: false,
+			showOnSheet: true,
+			showOnTable: false,
+			showOnFilter: false,
+		});
+
+		const created = await contacts.create({
+			firstName: "Blank",
+			email: `blank-create@${domain}`,
+			companyId,
+			fields: { spec_blank: "" },
+		});
+
+		expect(created.id).toBeTruthy();
+		expect(
+			await db.fieldValue.count({ where: { contactId: created.id } }),
+		).toBe(0);
+	});
+});
+
 describe("queueing a backfill", () => {
 	it("targets the record, and merges a second field into the same pending task", async () => {
 		const trigger = new AgentTriggerService(db);
