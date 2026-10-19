@@ -308,6 +308,11 @@ export class ContactsService {
 					createdAt: true,
 				},
 			});
+
+			if (input.fields) {
+				await this.fields.applyValues(tx, "CONTACT", created.id, input.fields);
+			}
+
 			await emit({
 				type: "contact.created",
 				record: { kind: "contact", id: created.id },

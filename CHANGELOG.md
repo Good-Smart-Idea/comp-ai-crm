@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.3](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.2...v1.18.3) (2026-10-19)
+
+
+### Fixes
+
+* **api:** accept optional custom fields on new contact creation ([#55](https://github.com/Good-Smart-Idea/comp-ai-crm/issues/55)) ([405cdd2](https://github.com/Good-Smart-Idea/comp-ai-crm/commit/405cdd2c97f105769cfbb3e3fba4a9d0c633f714))
+
 ## [1.18.2](https://github.com/Good-Smart-Idea/comp-ai-crm/compare/v1.18.1...v1.18.2) (2026-10-09)
 
 
